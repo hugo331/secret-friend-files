@@ -298,16 +298,13 @@ function WantedPoster({ form }: { form: FormState }) {
       <div className="relative space-y-6">
         {/* Titres */}
         <div className="text-center">
-          <p className="poster-title-main font-poster-title text-2xl uppercase tracking-wide text-investigation sm:text-4xl">
+          <p className="poster-title-main font-poster-title text-2xl uppercase tracking-wide text-foreground sm:text-4xl">
             Jeu de connaissance
-          </p>
-          <p className="poster-title-sub mt-1 font-poster-title text-xl uppercase tracking-wide text-classified-foreground sm:text-2xl">
-            Avis de recherche
           </p>
         </div>
 
         <div className="mx-auto w-fit rotate-[-1deg] bg-card px-6 py-2 shadow-md">
-          <p className="poster-title-sub font-poster-title text-lg uppercase tracking-widest text-classified-foreground sm:text-xl">
+          <p className="poster-title-sub font-poster-title text-lg uppercase tracking-widest text-investigation sm:text-2xl">
             Avis de recherche
           </p>
         </div>
