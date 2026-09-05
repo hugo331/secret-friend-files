@@ -154,3 +154,119 @@
     color: var(--color-foreground);
   }
 }
+
+/* ---------- Impression : tout sur 1 page + coupon verdict détachable ---------- */
+@page {
+  size: A4 portrait;
+  margin: 8mm;
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 9pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page {
+    padding: 0 !important;
+  }
+
+  .print-page h1 {
+    font-size: 16pt !important;
+    gap: 6px !important;
+  }
+
+  .print-page h1 svg {
+    height: 18px !important;
+    width: 18px !important;
+  }
+
+  .print-page header {
+    margin-bottom: 8px !important;
+  }
+
+  .print-page section,
+  .print-page .space-y-8 > * + *,
+  .print-page .space-y-6 > * + * {
+    margin-top: 8px !important;
+  }
+
+  .print-page [data-slot="card"] {
+    box-shadow: none !important;
+    border-width: 1px !important;
+    gap: 6px !important;
+    padding-block: 8px !important;
+    page-break-inside: avoid;
+  }
+
+  .print-page [data-slot="card-header"] {
+    padding-bottom: 4px !important;
+  }
+
+  .print-page [data-slot="card-title"] {
+    font-size: 10pt !important;
+  }
+
+  .print-page [data-slot="card-content"] {
+    gap: 6px !important;
+  }
+
+  .print-page label {
+    font-size: 8pt !important;
+    line-height: 1.2 !important;
+  }
+
+  .print-page input,
+  .print-page textarea {
+    border: none !important;
+    border-bottom: 1px dashed var(--border) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    padding: 0 0 2px !important;
+    min-height: auto !important;
+    font-size: 9pt !important;
+  }
+
+  .print-page textarea {
+    height: 32px !important;
+  }
+
+  .print-page .space-y-2 > * + * {
+    margin-top: 2px !important;
+  }
+
+  /* Coupon détachable du verdict */
+  .print-coupon {
+    margin-top: 14px !important;
+    transform: rotate(-0.6deg);
+    border: 2px dashed var(--investigation) !important;
+    border-left-width: 2px !important;
+    background: oklch(0.97 0.02 85) !important;
+    position: relative;
+  }
+
+  .print-coupon::before {
+    content: "✂  À DÉCOUPER — RÉSERVÉ AU MAÎTRE DE CÉRÉMONIE  ✂";
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card);
+    padding: 0 8px;
+    font-size: 7pt;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--investigation);
+    white-space: nowrap;
+  }
+
+  .print-coupon [data-slot="card-title"] {
+    color: var(--investigation) !important;
+  }
+}
