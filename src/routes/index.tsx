@@ -67,8 +67,10 @@ function Index() {
             Enquête n° 001
           </div>
 
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
-            🕵️‍♂️ DOSSIER D'ENQUÊTE SECRET 🕵️‍♀️
+          <h1 className="flex items-center justify-center gap-3 text-3xl font-bold tracking-tight md:text-4xl">
+            <Search className="h-8 w-8 text-investigation md:h-10 md:w-10" />
+            DOSSIER D'ENQUÊTE SECRET
+            <Fingerprint className="h-8 w-8 text-classified-foreground md:h-10 md:w-10" />
           </h1>
 
           <p className="text-muted-foreground">
