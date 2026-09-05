@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileSearch, Fingerprint, Printer, RotateCcw, Search } from "lucide-react";
+import { FileSearch, Fingerprint, Printer, RotateCcw, Scissors, Search } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -53,7 +53,7 @@ function Index() {
   const totalFields = Object.keys(form).length;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8 text-foreground md:py-12">
+    <div className="print-page min-h-screen bg-background px-4 py-8 text-foreground md:py-12">
       <div className="mx-auto max-w-3xl space-y-8">
         <header className="relative space-y-4 text-center">
           <div className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center opacity-[0.04]">
@@ -80,7 +80,7 @@ function Index() {
           <div className="mx-auto h-1 w-24 rounded-full bg-investigation/30" />
         </header>
 
-        <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
+        <div className="no-print flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
           <Search className="h-3.5 w-3.5" />
           <span>Indices collectés : {filledCount}/{totalFields}</span>
           <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
@@ -175,11 +175,15 @@ function Index() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-investigation bg-investigation/[0.02]">
+          <Card className="print-coupon border-2 border-dashed border-investigation bg-investigation/[0.02]">
             <CardHeader>
-              <CardTitle className="text-xl uppercase tracking-wide text-investigation">
+              <CardTitle className="flex items-center gap-2 text-xl uppercase tracking-wide text-investigation">
+                <Scissors className="h-5 w-5" />
                 [Réservé à l'enquêteur]
               </CardTitle>
+              <CardDescription>
+                À découper après remplissage : le maître de cérémonie le garde pour valider les réponses.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Field
@@ -201,7 +205,7 @@ function Index() {
           </Card>
         </section>
 
-        <footer className="flex flex-col items-center gap-4 border-t border-border pt-8 sm:flex-row sm:justify-between">
+        <footer className="no-print flex flex-col items-center gap-4 border-t border-border pt-8 sm:flex-row sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Bonne chance, détective.
           </p>
