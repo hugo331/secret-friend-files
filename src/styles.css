@@ -241,32 +241,13 @@
     margin-top: 2px !important;
   }
 
-  /* Coupon détachable du verdict */
-  .print-coupon {
-    margin-top: 14px !important;
-    transform: rotate(-0.6deg);
-    border: 2px dashed var(--investigation) !important;
-    border-left-width: 2px !important;
-    background: oklch(0.97 0.02 85) !important;
-    position: relative;
+  /* Section verdict réservée à l'enquêteur */
+  .print-page [data-slot="card"]:last-of-type {
+    border: 1px solid var(--investigation) !important;
+    background: oklch(0.97 0.015 85) !important;
   }
 
-  .print-coupon::before {
-    content: "✂  À DÉCOUPER — RÉSERVÉ AU MAÎTRE DE CÉRÉMONIE  ✂";
-    position: absolute;
-    top: -9px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--card);
-    padding: 0 8px;
-    font-size: 7pt;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--investigation);
-    white-space: nowrap;
-  }
-
-  .print-coupon [data-slot="card-title"] {
+  .print-page [data-slot="card"]:last-of-type [data-slot="card-title"] {
     color: var(--investigation) !important;
   }
 }
