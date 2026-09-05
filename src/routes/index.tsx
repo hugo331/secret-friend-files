@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileSearch, Fingerprint, Printer, RotateCcw, Scissors, Search } from "lucide-react";
+import { FileSearch, Fingerprint, Printer, RotateCcw, Search } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -175,33 +175,39 @@ function Index() {
             </CardContent>
           </Card>
 
-          <Card className="print-coupon border-2 border-dashed border-investigation bg-investigation/[0.02]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl uppercase tracking-wide text-investigation">
-                <Scissors className="h-5 w-5" />
-                [Réservé à l'enquêteur]
-              </CardTitle>
-              <CardDescription>
-                À découper après remplissage : le maître de cérémonie le garde pour valider les réponses.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Field
-                label="Nom de l'enquêteur"
-                value={form.enqueteur}
-                onChange={update("enqueteur")}
-              />
-              <Field
-                label="Mon suspect principal"
-                value={form.suspect}
-                onChange={update("suspect")}
-              />
-              <Field
-                label="Verdict final (Vrai nom de la personne)"
-                value={form.verdict}
-                onChange={update("verdict")}
-              />
-            </CardContent>
+          <Card className="border-2 border-investigation/30 bg-investigation/[0.02]">
+            <div className="relative overflow-hidden">
+              <div className="absolute -right-6 -top-6 h-24 w-24 rotate-12 rounded-full border-2 border-classified/40 bg-classified/10" />
+              <div className="absolute -right-2 top-4 rotate-[-12deg] border-2 border-classified/60 bg-card px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-classified-foreground shadow-sm">
+                Confidentiel
+              </div>
+              <CardHeader className="relative">
+                <CardTitle className="flex items-center gap-2 text-xl uppercase tracking-wide text-investigation">
+                  <Fingerprint className="h-5 w-5" />
+                  Réservé à l'enquêteur
+                </CardTitle>
+                <CardDescription>
+                  Le maître de cérémonie conserve cette section pour valider la réponse finale.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="relative space-y-4">
+                <Field
+                  label="Nom de l'enquêteur"
+                  value={form.enqueteur}
+                  onChange={update("enqueteur")}
+                />
+                <Field
+                  label="Mon suspect principal"
+                  value={form.suspect}
+                  onChange={update("suspect")}
+                />
+                <Field
+                  label="Verdict final (Vrai nom de la personne)"
+                  value={form.verdict}
+                  onChange={update("verdict")}
+                />
+              </CardContent>
+            </div>
           </Card>
         </section>
 
