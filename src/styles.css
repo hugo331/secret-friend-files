@@ -63,6 +63,12 @@
   --color-investigation-foreground: var(--investigation-foreground);
   --color-classified: var(--classified);
   --color-classified-foreground: var(--classified-foreground);
+  --color-poster-board: var(--poster-board);
+  --color-poster-line: var(--poster-line);
+  --color-poster-ink: var(--poster-ink);
+  --color-poster-tape: var(--poster-tape);
+  --font-poster-title: "Archivo Black", sans-serif;
+  --font-poster-hand: "Caveat", cursive;
 }
 
 :root {
@@ -103,6 +109,10 @@
   --investigation-foreground: oklch(0.98 0.003 247.858);
   --classified: oklch(0.78 0.14 85);
   --classified-foreground: oklch(0.25 0.05 260);
+  --poster-board: oklch(0.93 0.008 250);
+  --poster-line: oklch(0.88 0.01 250);
+  --poster-ink: oklch(0.72 0.17 65);
+  --poster-tape: oklch(0.62 0.1 250);
 }
 
 .dark {
