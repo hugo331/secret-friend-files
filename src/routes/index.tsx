@@ -6,18 +6,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileSearch, Fingerprint, Printer, RotateCcw, Search } from "lucide-react";
+import {
+  ClipboardList,
+  FileSearch,
+  Fingerprint,
+  Printer,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
   head: () => ({
     meta: [
-      { title: "Dossier d'enquête secret" },
-      { name: "description", content: "Un jeu d'enquête à remplir anonymement entre amis." },
-      { property: "og:title", content: "Dossier d'enquête secret" },
+      { title: "Dossier d'enquête secret — Avis de recherche" },
+      { name: "description", content: "Remplis le dossier et génère ton avis de recherche à imprimer." },
+      { property: "og:title", content: "Dossier d'enquête secret — Avis de recherche" },
       {
         property: "og:description",
-        content: "Un jeu d'enquête à remplir anonymement entre amis.",
+        content: "Remplis le dossier et génère ton avis de recherche à imprimer.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -42,10 +49,13 @@ const initialForm = {
   verdict: "",
 };
 
+type FormState = typeof initialForm;
+
 function Index() {
   const [form, setForm] = useState(initialForm);
+  const [view, setView] = useState<"form" | "poster">("form");
 
-  const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const update = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [key]: e.target.value }));
   };
 
@@ -54,7 +64,8 @@ function Index() {
 
   return (
     <div className="print-page min-h-screen bg-background px-4 py-8 text-foreground md:py-12">
-      <div className="mx-auto max-w-3xl space-y-8">
+      {/* ================= FORMULAIRE (écran uniquement) ================= */}
+      <div className={view === "form" ? "no-print mx-auto max-w-3xl space-y-8" : "no-print hidden"}>
         <header className="relative space-y-4 text-center">
           <div className="pointer-events-none absolute inset-0 -z-10 flex select-none items-center justify-center opacity-[0.04]">
             <span className="rotate-[-12deg] border-4 border-current px-6 py-3 text-4xl font-black uppercase tracking-widest text-investigation md:text-6xl">
@@ -80,7 +91,7 @@ function Index() {
           <div className="mx-auto h-1 w-24 rounded-full bg-investigation/30" />
         </header>
 
-        <div className="no-print flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
           <Search className="h-3.5 w-3.5" />
           <span>Indices collectés : {filledCount}/{totalFields}</span>
           <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
@@ -211,7 +222,7 @@ function Index() {
           </Card>
         </section>
 
-        <footer className="no-print flex flex-col items-center gap-4 border-t border-border pt-8 sm:flex-row sm:justify-between">
+        <footer className="flex flex-col items-center gap-4 border-t border-border pt-8 sm:flex-row sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Bonne chance, détective.
           </p>
@@ -220,12 +231,111 @@ function Index() {
               <RotateCcw className="mr-2 h-4 w-4" />
               Recommencer
             </Button>
-            <Button onClick={() => window.print()}>
-              <Printer className="mr-2 h-4 w-4" />
-              Imprimer le dossier
+            <Button onClick={() => setView("poster")}>
+              <Fingerprint className="mr-2 h-4 w-4" />
+              Générer l'avis de recherche
             </Button>
           </div>
         </footer>
+      </div>
+
+      {/* ================= AFFICHE (aperçu + impression) ================= */}
+      <div className={view === "poster" ? "mx-auto max-w-2xl space-y-6" : "hidden poster-print"}>
+        <div className="no-print flex flex-col items-center justify-between gap-3 sm:flex-row">
+          <Button variant="outline" onClick={() => setView("form")}>
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Modifier les réponses
+          </Button>
+          <Button onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" />
+            Imprimer l'affiche
+          </Button>
+        </div>
+
+        <WantedPoster form={form} />
+      </div>
+    </div>
+  );
+}
+
+function WantedPoster({ form }: { form: FormState }) {
+  const troisMots = [form.mot1, form.mot2, form.mot3].filter(Boolean).join(" • ");
+
+  const cards: { q: string; a: string; rotate: string; big?: boolean }[] = [
+    { q: "Surnom / trait de caractère :", a: form.surnom, rotate: "-rotate-2" },
+    { q: "Pire look de l'époque :", a: form.pireLook, rotate: "rotate-1" },
+    { q: "Souvenir marquant / bêtise :", a: form.souvenir, rotate: "rotate-2", big: true },
+    { q: "Musique écoutée en boucle :", a: form.musique, rotate: "-rotate-1" },
+    { q: "Vit désormais à :", a: form.localisation, rotate: "rotate-1" },
+    { q: "Métier actuel :", a: form.metier, rotate: "-rotate-2" },
+    { q: "Passion du moment :", a: form.passion, rotate: "rotate-2" },
+    { q: "Exploit insolite :", a: form.accomplissement, rotate: "-rotate-1", big: true },
+    { q: "En 3 mots :", a: troisMots, rotate: "rotate-1" },
+  ];
+
+  return (
+    <div className="poster-board relative overflow-hidden bg-poster-board px-4 py-8 shadow-xl sm:px-8 sm:py-10">
+      {/* Ruban adhésif aux 4 coins */}
+      <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
+      <div className="poster-tape -right-8 -top-2 rotate-45" />
+      <div className="poster-tape -bottom-2 -left-8 rotate-45" />
+      <div className="poster-tape -bottom-2 -right-8 rotate-[-45deg]" />
+
+      {/* Lignes de taille façon mugshot */}
+      <div className="pointer-events-none absolute inset-x-0 top-24 bottom-16 select-none opacity-60">
+        {["6'8\"", "6'4\"", "6'2\"", "5'8\"", "5'0\"", "4'10\"", "4'8\""].map((h, i) => (
+          <div
+            key={h}
+            className="absolute inset-x-0 flex items-center justify-between border-t border-poster-line text-[9px] font-semibold text-muted-foreground"
+            style={{ top: `${(i / 7) * 100}%` }}
+          >
+            <span className="pl-1">{h}</span>
+            <span className="pr-1">{h}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative space-y-6">
+        {/* Titres */}
+        <div className="text-center">
+          <p className="poster-title-main font-poster-title text-2xl uppercase tracking-wide text-investigation sm:text-4xl">
+            Jeu de connaissance
+          </p>
+          <p className="poster-title-sub mt-1 font-poster-title text-xl uppercase tracking-wide text-classified-foreground sm:text-2xl">
+            Avis de recherche
+          </p>
+        </div>
+
+        <div className="mx-auto w-fit rotate-[-1deg] bg-card px-6 py-2 shadow-md">
+          <p className="poster-title-sub font-poster-title text-lg uppercase tracking-widest text-classified-foreground sm:text-xl">
+            Avis de recherche
+          </p>
+        </div>
+
+        {/* Fiches de réponses */}
+        <div className="flex flex-wrap items-start justify-center gap-4 pt-2">
+          {cards.map((c) => (
+            <div
+              key={c.q}
+              className={`poster-card ${c.rotate} ${c.big ? "w-full max-w-md" : "w-full max-w-56"}`}
+            >
+              <p className="poster-q font-poster-hand text-sm italic text-muted-foreground">{c.q}</p>
+              <p className="poster-a font-poster-hand text-xl font-bold leading-tight text-poster-ink">
+                {c.a || "•••"}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Verdict */}
+        <div className="poster-card mx-auto w-full max-w-lg text-center">
+          <p className="poster-verdict font-poster-title text-base uppercase tracking-wider text-foreground sm:text-lg">
+            Prénom de l'accusé·e :{" "}
+            <span className="font-poster-hand text-poster-ink normal-case tracking-normal">
+              {form.verdict || "____________________"}
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );
