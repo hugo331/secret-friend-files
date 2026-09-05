@@ -171,93 +171,69 @@
   margin: 8mm;
 }
 
+/* ---------- Affiche "Avis de recherche" ---------- */
+.poster-card {
+  background: var(--card);
+  box-shadow: 0 2px 6px oklch(0.2 0.02 260 / 0.15);
+  padding: 0.5rem 0.9rem;
+}
+
+.poster-tape {
+  position: absolute;
+  width: 7rem;
+  height: 2rem;
+  background: var(--poster-tape);
+  opacity: 0.85;
+  clip-path: polygon(2% 0, 98% 4%, 100% 96%, 0 100%);
+}
+
 @media print {
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    font-size: 9pt;
   }
 
   .no-print {
     display: none !important;
   }
 
+  /* L'affiche est toujours visible à l'impression, seule sur sa page A4 */
+  .poster-print {
+    display: block !important;
+  }
+
   .print-page {
     padding: 0 !important;
-  }
-
-  .print-page h1 {
-    font-size: 16pt !important;
-    gap: 6px !important;
-  }
-
-  .print-page h1 svg {
-    height: 18px !important;
-    width: 18px !important;
-  }
-
-  .print-page header {
-    margin-bottom: 8px !important;
-  }
-
-  .print-page section,
-  .print-page .space-y-8 > * + *,
-  .print-page .space-y-6 > * + * {
-    margin-top: 8px !important;
-  }
-
-  .print-page [data-slot="card"] {
-    box-shadow: none !important;
-    border-width: 1px !important;
-    gap: 6px !important;
-    padding-block: 8px !important;
-    page-break-inside: avoid;
-  }
-
-  .print-page [data-slot="card-header"] {
-    padding-bottom: 4px !important;
-  }
-
-  .print-page [data-slot="card-title"] {
-    font-size: 10pt !important;
-  }
-
-  .print-page [data-slot="card-content"] {
-    gap: 6px !important;
-  }
-
-  .print-page label {
-    font-size: 8pt !important;
-    line-height: 1.2 !important;
-  }
-
-  .print-page input,
-  .print-page textarea {
-    border: none !important;
-    border-bottom: 1px dashed var(--border) !important;
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 0 2px !important;
     min-height: auto !important;
-    font-size: 9pt !important;
   }
 
-  .print-page textarea {
-    height: 32px !important;
+  .poster-board {
+    min-height: auto !important;
   }
 
-  .print-page .space-y-2 > * + * {
-    margin-top: 2px !important;
+  .poster-board .poster-title-main {
+    font-size: 22pt !important;
   }
 
-  /* Section verdict réservée à l'enquêteur */
-  .print-page [data-slot="card"]:last-of-type {
-    border: 1px solid var(--investigation) !important;
-    background: oklch(0.97 0.015 85) !important;
+  .poster-board .poster-title-sub {
+    font-size: 15pt !important;
   }
 
-  .print-page [data-slot="card"]:last-of-type [data-slot="card-title"] {
-    color: var(--investigation) !important;
+  .poster-card {
+    padding: 3px 8px !important;
+    box-shadow: 0 1px 3px oklch(0.2 0.02 260 / 0.12) !important;
+  }
+
+  .poster-card .poster-q {
+    font-size: 9.5pt !important;
+  }
+
+  .poster-card .poster-a {
+    font-size: 13pt !important;
+    line-height: 1.1 !important;
+  }
+
+  .poster-verdict {
+    font-size: 12pt !important;
   }
 }
