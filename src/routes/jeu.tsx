@@ -176,7 +176,7 @@ function GamePage() {
       <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <span>Détective {state.me.name}</span>
         <span>
-          Fiche {state.answered + 1} / {state.total} — {state.score} pt
+          Fiche {state.total - state.cards.length + 1} / {state.total} — {state.score} pt
           {state.score > 1 ? "s" : ""}
         </span>
       </div>
