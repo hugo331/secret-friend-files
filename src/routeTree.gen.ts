@@ -10,33 +10,53 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClassementRouteImport } from './routes/classement'
+import { Route as JeuRouteImport } from './routes/jeu'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClassementRoute = ClassementRouteImport.update({
+  id: '/classement',
+  path: '/classement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JeuRoute = JeuRouteImport.update({
+  id: '/jeu',
+  path: '/jeu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/classement': typeof ClassementRoute
+  '/jeu': typeof JeuRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/classement': typeof ClassementRoute
+  '/jeu': typeof JeuRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/classement': typeof ClassementRoute
+  '/jeu': typeof JeuRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/classement' | '/jeu'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/classement' | '/jeu'
+  id: '__root__' | '/' | '/classement' | '/jeu'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClassementRoute: typeof ClassementRoute
+  JeuRoute: typeof JeuRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +68,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/classement': {
+      id: '/classement'
+      path: '/classement'
+      fullPath: '/classement'
+      preLoaderRoute: typeof ClassementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jeu': {
+      id: '/jeu'
+      path: '/jeu'
+      fullPath: '/jeu'
+      preLoaderRoute: typeof JeuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClassementRoute: ClassementRoute,
+  JeuRoute: JeuRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

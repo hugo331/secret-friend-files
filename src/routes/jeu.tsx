@@ -27,13 +27,13 @@ export const Route = createFileRoute("/jeu")({
   }),
 });
 
-type Card = { id: string; memory: string; job: string; passion: string; words: string };
+type Fiche = { id: string; memory: string; job: string; passion: string; words: string };
 type State = {
   me: { id: string; name: string };
   score: number;
   answered: number;
   total: number;
-  cards: Card[];
+  cards: Fiche[];
 };
 
 function GamePage() {
