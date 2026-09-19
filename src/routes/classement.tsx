@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Trophy } from "lucide-react";
+import { RotateCcw, Trash2, Trophy } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { getLeaderboard, removePlayerCard } from "@/lib/game.functions";
+import { getLeaderboard, removePlayerCard, resetAllGameData } from "@/lib/game.functions";
 
 export const Route = createFileRoute("/classement")({
   component: LeaderboardPage,
@@ -25,6 +25,7 @@ export const Route = createFileRoute("/classement")({
 function LeaderboardPage() {
   const fetchBoard = useServerFn(getLeaderboard);
   const remove = useServerFn(removePlayerCard);
+  const resetAll = useServerFn(resetAllGameData);
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["leaderboard"],
@@ -32,6 +33,7 @@ function LeaderboardPage() {
     refetchInterval: 3000,
   });
   const [admin, setAdmin] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const taps = useRef(0);
 
   const rows = data ?? [];
@@ -52,6 +54,24 @@ function LeaderboardPage() {
       await queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     } catch {
       toast.error("Suppression impossible, réessaie.");
+    }
+  };
+
+  const onResetAll = async () => {
+    const answer = window.prompt(
+      "Ça va supprimer TOUTES les fiches et réponses (utile pour nettoyer les données de test avant la vraie soirée). Tape SUPPRIMER pour confirmer.",
+    );
+    if (answer !== "SUPPRIMER") return;
+    setResetting(true);
+    try {
+      await resetAll();
+      toast.success("Toutes les données ont été effacées.");
+      localStorage.removeItem("enquete_player");
+      await queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+    } catch {
+      toast.error("Réinitialisation impossible, réessaie.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -108,6 +128,24 @@ function LeaderboardPage() {
             </Link>
           </Button>
         </div>
+
+        {admin && (
+          <div className="flex flex-col items-center gap-2 border-t border-dashed border-muted pt-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              Mode organisateur — avant la vraie soirée, efface les fiches de test.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void onResetAll()}
+              disabled={resetting}
+              className="text-destructive hover:text-destructive"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              {resetting ? "Réinitialisation..." : "Effacer toutes les données (test)"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
