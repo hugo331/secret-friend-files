@@ -320,6 +320,15 @@ export const removePlayerCard = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // La fiche disparaît du jeu : les tentatives déjà faites dessus doivent
+    // disparaître aussi, sinon les points gagnés dessus restent comptés
+    // dans le score alors que la fiche n'existe plus.
+    const { error: guessesError } = await supabaseAdmin
+      .from("guesses")
+      .delete()
+      .eq("target_id", data.playerId);
+    if (guessesError) throw new Error(guessesError.message);
+
     const { error } = await supabaseAdmin
       .from("players")
       .update({ removed: true })
