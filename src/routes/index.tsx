@@ -117,9 +117,7 @@ function Index() {
           {icon}
           {title}
         </CardTitle>
-        <CardDescription>
-          Réponds à exactement 5 questions — {filled}/5 remplies.
-        </CardDescription>
+        <CardDescription>Réponds à ces 5 questions — {filled}/5 remplies.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {questions.map((q) => (
