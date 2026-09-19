@@ -16,7 +16,10 @@ export const Route = createFileRoute("/jeu")({
   head: () => ({
     meta: [
       { title: "Le jeu — Dossier d'enquête secret" },
-      { name: "description", content: "Découvre les fiches anonymes et devine qui se cache derrière." },
+      {
+        name: "description",
+        content: "Découvre les fiches anonymes et devine qui se cache derrière.",
+      },
       { property: "og:title", content: "Le jeu — Dossier d'enquête secret" },
       {
         property: "og:description",
@@ -51,7 +54,11 @@ function GamePage() {
   const [revealed, setRevealed] = useState(0);
   const [totalClues, setTotalClues] = useState(0);
   const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<{ correct: boolean; points: number; realName: string } | null>(null);
+  const [result, setResult] = useState<{
+    correct: boolean;
+    points: number;
+    realName: string;
+  } | null>(null);
   const [attempts, setAttempts] = useState(0);
   const [busy, setBusy] = useState(false);
 
@@ -83,7 +90,11 @@ function GamePage() {
         setTotalClues(res.totalClues);
       })
       .catch(() => toast.error("Impossible de charger la fiche."));
-  }, [state?.me.id, current?.id, fetchClues, state]);
+    // `state` et `current` (dérivé de state.cards[0]) changent de référence à chaque mise à
+    // jour du score après une bonne réponse, sans que la fiche affichée ne change vraiment :
+    // les inclure ici relançait cet effet juste après, qui rejetait la fiche comme "déjà jouée".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.me.id, current?.id, fetchClues]);
 
   const identify = async () => {
     if (!nameInput.trim()) return;
@@ -110,7 +121,9 @@ function GamePage() {
     setBusy(true);
     try {
       const next = revealed + 1;
-      const res = await fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: next } });
+      const res = await fetchClues({
+        data: { playerId: state.me.id, targetId: current.id, revealed: next },
+      });
       setClues(res.clues);
       setRevealed(next);
     } catch {
@@ -126,7 +139,13 @@ function GamePage() {
     const nextAttempts = attempts + 1;
     try {
       const res = await guess({
-        data: { playerId: state.me.id, targetId: current.id, answer, revealed, attempts: nextAttempts },
+        data: {
+          playerId: state.me.id,
+          targetId: current.id,
+          answer,
+          revealed,
+          attempts: nextAttempts,
+        },
       });
       setAttempts(nextAttempts);
       setAnswer("");
@@ -233,9 +252,14 @@ function GamePage() {
 
           <div className="flex flex-wrap items-start justify-center gap-4">
             {clues.map((c, i) => (
-              <div key={c.q} className={`poster-card ${ROTATIONS[i % ROTATIONS.length]} w-full max-w-sm`}>
+              <div
+                key={c.q}
+                className={`poster-card ${ROTATIONS[i % ROTATIONS.length]} w-full max-w-sm`}
+              >
                 <p className="font-poster-hand text-sm italic text-muted-foreground">{c.q}</p>
-                <p className="font-poster-hand text-xl font-bold leading-tight text-poster-ink">{c.a}</p>
+                <p className="font-poster-hand text-xl font-bold leading-tight text-poster-ink">
+                  {c.a}
+                </p>
               </div>
             ))}
           </div>

@@ -52,6 +52,7 @@ export const savePlayer = createServerFn({ method: "POST" })
           name: data.name,
           name_key: nameKey,
           clues: data.clues,
+          removed: false,
           updated_at: new Date().toISOString(),
         })
         .eq("delete_token", data.deleteToken)
@@ -69,6 +70,7 @@ export const savePlayer = createServerFn({ method: "POST" })
           name_key: nameKey,
           clues: data.clues,
           delete_token: token,
+          removed: false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "name_key" },
