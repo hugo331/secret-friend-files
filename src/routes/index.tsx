@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Fingerprint, GraduationCap, Search, Trash2, Trophy, User, UserPlus } from "lucide-react";
@@ -40,7 +40,6 @@ function Index() {
   const [stored, setStored] = useState<StoredPlayer | null>(null);
   const save = useServerFn(savePlayer);
   const remove = useServerFn(deleteMyPlayer);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const raw = localStorage.getItem("enquete_player");
@@ -78,8 +77,7 @@ function Index() {
       const next = { id: player.id, name: player.name, deleteToken: player.deleteToken };
       localStorage.setItem("enquete_player", JSON.stringify(next));
       setStored(next);
-      toast.success("Fiche enregistrée !");
-      navigate({ to: "/jeu" });
+      toast.success("Fiche enregistrée ! Rendez-vous le jour J pour jouer.");
     } catch {
       toast.error("Impossible d'enregistrer la fiche, réessaie.");
     } finally {
