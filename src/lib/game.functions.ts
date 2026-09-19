@@ -18,7 +18,10 @@ function countAnswers(clues: unknown): number {
   if (!Array.isArray(clues)) return 0;
   return clues.filter(
     (c) =>
-      c && typeof c === "object" && typeof (c as { a?: unknown }).a === "string" && ((c as { a: string }).a.trim().length > 0),
+      c &&
+      typeof c === "object" &&
+      typeof (c as { a?: unknown }).a === "string" &&
+      (c as { a: string }).a.trim().length > 0,
   ).length;
 }
 
@@ -45,7 +48,12 @@ export const savePlayer = createServerFn({ method: "POST" })
     if (data.deleteToken) {
       const { data: updated, error } = await supabaseAdmin
         .from("players")
-        .update({ name: data.name, name_key: nameKey, clues: data.clues, updated_at: new Date().toISOString() })
+        .update({
+          name: data.name,
+          name_key: nameKey,
+          clues: data.clues,
+          updated_at: new Date().toISOString(),
+        })
         .eq("delete_token", data.deleteToken)
         .select("id, name")
         .maybeSingle();
@@ -56,7 +64,13 @@ export const savePlayer = createServerFn({ method: "POST" })
     const { data: row, error } = await supabaseAdmin
       .from("players")
       .upsert(
-        { name: data.name, name_key: nameKey, clues: data.clues, delete_token: token, updated_at: new Date().toISOString() },
+        {
+          name: data.name,
+          name_key: nameKey,
+          clues: data.clues,
+          delete_token: token,
+          updated_at: new Date().toISOString(),
+        },
         { onConflict: "name_key" },
       )
       .select("id, name")
@@ -67,10 +81,15 @@ export const savePlayer = createServerFn({ method: "POST" })
   });
 
 export const deleteMyPlayer = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ deleteToken: z.string().min(10).max(64) }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ deleteToken: z.string().min(10).max(64) }).parse(input),
+  )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("players").delete().eq("delete_token", data.deleteToken);
+    const { error } = await supabaseAdmin
+      .from("players")
+      .delete()
+      .eq("delete_token", data.deleteToken);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -258,7 +277,10 @@ export const submitGuess = createServerFn({ method: "POST" })
 export const getLeaderboard = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const { data: players } = await supabaseAdmin.from("players").select("id, name").eq("removed", false);
+  const { data: players } = await supabaseAdmin
+    .from("players")
+    .select("id, name")
+    .eq("removed", false);
   const { data: guesses } = await supabaseAdmin.from("guesses").select("guesser_id, points");
 
   return (players ?? [])
@@ -274,11 +296,34 @@ export const getLeaderboard = createServerFn({ method: "GET" }).handler(async ()
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 });
 
+// Vue organisateur : contenu complet de chaque fiche (questions + réponses)
+// pour pouvoir relire et supprimer une fiche avant la soirée.
+export const getAllPlayerCards = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: players, error } = await supabaseAdmin
+    .from("players")
+    .select("id, name, clues, created_at")
+    .eq("removed", false)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  return (players ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    clues: (Array.isArray(p.clues) ? (p.clues as { q: string; a: string }[]) : []).filter(
+      (c) => c && typeof c.a === "string" && c.a.trim().length > 0,
+    ),
+  }));
+});
+
 export const removePlayerCard = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin.from("players").update({ removed: true }).eq("id", data.playerId);
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({ removed: true })
+      .eq("id", data.playerId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
