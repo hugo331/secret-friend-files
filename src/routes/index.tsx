@@ -1,15 +1,15 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { Fingerprint, Search, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Fingerprint, GraduationCap, Search, Trash2, Trophy, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { savePlayer } from "@/lib/game.functions";
+import { deleteMyPlayer, savePlayer } from "@/lib/game.functions";
+import { AUJOURDHUI_QUESTIONS, LYCEE_QUESTIONS } from "@/lib/questions";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -18,12 +18,12 @@ export const Route = createFileRoute("/")({
       { title: "Dossier d'enquête secret — Dépose ta fiche" },
       {
         name: "description",
-        content: "Enregistre ton prénom et tes 4 indices avant la soirée, puis retrouve les autres le jour J.",
+        content: "Enregistre ton prénom et 10 indices (5 lycée, 5 aujourd'hui) avant la soirée.",
       },
       { property: "og:title", content: "Dossier d'enquête secret — Dépose ta fiche" },
       {
         property: "og:description",
-        content: "Enregistre ton prénom et tes 4 indices avant la soirée, puis retrouve les autres le jour J.",
+        content: "Enregistre ton prénom et 10 indices (5 lycée, 5 aujourd'hui) avant la soirée.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -31,41 +31,49 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-const initialForm = {
-  name: "",
-  clueMemory: "",
-  clueJob: "",
-  cluePassion: "",
-  clueWords: "",
-};
+type StoredPlayer = { id: string; name: string; deleteToken: string };
 
 function Index() {
-  const [form, setForm] = useState(initialForm);
+  const [name, setName] = useState("");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [stored, setStored] = useState<StoredPlayer | null>(null);
   const save = useServerFn(savePlayer);
+  const remove = useServerFn(deleteMyPlayer);
   const navigate = useNavigate();
 
-  const update =
-    (key: keyof typeof initialForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+  useEffect(() => {
+    const raw = localStorage.getItem("enquete_player");
+    if (!raw) return;
+    try {
+      const p = JSON.parse(raw) as StoredPlayer;
+      setStored(p);
+      setName(p.name);
+    } catch {
+      localStorage.removeItem("enquete_player");
+    }
+  }, []);
 
-  const filled = Object.values(form).filter((v) => v.trim()).length;
+  const lyceeFilled = LYCEE_QUESTIONS.filter((q) => (answers[q] ?? "").trim()).length;
+  const todayFilled = AUJOURDHUI_QUESTIONS.filter((q) => (answers[q] ?? "").trim()).length;
+  const valid = name.trim().length > 0 && lyceeFilled === 5 && todayFilled === 5;
 
   const onSubmit = async () => {
-    if (!form.name.trim()) {
-      toast.error("Indique ton prénom");
-      return;
-    }
-    if (filled < 5) {
-      toast.error("Remplis tes 4 indices");
+    if (!valid) {
+      toast.error("Il faut ton prénom + 5 réponses lycée + 5 réponses aujourd'hui.");
       return;
     }
     setSaving(true);
     try {
-      const player = await save({ data: form });
-      localStorage.setItem("enquete_player", JSON.stringify(player));
-      toast.success("Fiche enregistrée, à toi de jouer le jour J !");
+      const clues = [...LYCEE_QUESTIONS, ...AUJOURDHUI_QUESTIONS].map((q) => ({
+        q,
+        a: (answers[q] ?? "").trim(),
+      }));
+      const player = await save({ data: { name, deleteToken: stored?.deleteToken, clues } });
+      const next = { id: player.id, name: player.name, deleteToken: player.deleteToken };
+      localStorage.setItem("enquete_player", JSON.stringify(next));
+      setStored(next);
+      toast.success("Fiche enregistrée !");
       navigate({ to: "/jeu" });
     } catch {
       toast.error("Impossible d'enregistrer la fiche, réessaie.");
@@ -73,6 +81,58 @@ function Index() {
       setSaving(false);
     }
   };
+
+  const onDelete = async () => {
+    if (!stored) return;
+    if (!window.confirm("Supprimer définitivement ta fiche ?")) return;
+    setSaving(true);
+    try {
+      await remove({ data: { deleteToken: stored.deleteToken } });
+      localStorage.removeItem("enquete_player");
+      setStored(null);
+      setName("");
+      setAnswers({});
+      toast.success("Fiche supprimée.");
+    } catch {
+      toast.error("Suppression impossible, réessaie.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const questionBlock = (
+    title: string,
+    icon: React.ReactNode,
+    questions: readonly string[],
+    filled: number,
+  ) => (
+    <Card className="border-l-4 border-l-investigation">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xl">
+          {icon}
+          {title}
+        </CardTitle>
+        <CardDescription>
+          Réponds à exactement 5 questions — {filled}/5 remplies.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {questions.map((q) => (
+          <div key={q} className="space-y-1.5">
+            <Label htmlFor={q} className="text-sm font-normal">
+              {q}
+            </Label>
+            <Input
+              id={q}
+              maxLength={300}
+              value={answers[q] ?? ""}
+              onChange={(e) => setAnswers((prev) => ({ ...prev, [q]: e.target.value }))}
+            />
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 text-foreground">
@@ -86,80 +146,46 @@ function Index() {
             Dossier d'enquête secret
           </h1>
           <p className="text-muted-foreground">
-            Dépose ta fiche avant la soirée. Le jour J, chacun devra retrouver qui se cache derrière
-            chaque fiche.
+            Dépose ta fiche avant la soirée : 5 indices sur tes années lycée, 5 sur ta vie
+            d'aujourd'hui.
           </p>
         </header>
 
         <Card className="border-l-4 border-l-investigation">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
-              <Search className="h-5 w-5 text-investigation" />
-              Ma fiche
+              <User className="h-5 w-5 text-investigation" />
+              Mon identité
             </CardTitle>
             <CardDescription>Ton prénom reste caché jusqu'à la révélation.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="name">Mon prénom</Label>
-              <Input
-                id="name"
-                value={form.name}
-                onChange={update("name")}
-                maxLength={40}
-                placeholder="Ex : Chloé"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="memory">Un souvenir marquant ou une bêtise faite ensemble</Label>
-              <Textarea
-                id="memory"
-                rows={3}
-                maxLength={300}
-                value={form.clueMemory}
-                onChange={update("clueMemory")}
-                placeholder="Indice n°1..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="job">Ce que je fais aujourd'hui</Label>
-              <Input
-                id="job"
-                maxLength={300}
-                value={form.clueJob}
-                onChange={update("clueJob")}
-                placeholder="Indice n°2..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="passion">Ma passion du moment</Label>
-              <Input
-                id="passion"
-                maxLength={300}
-                value={form.cluePassion}
-                onChange={update("cluePassion")}
-                placeholder="Indice n°3..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="words">Trois mots pour me décrire</Label>
-              <Input
-                id="words"
-                maxLength={300}
-                value={form.clueWords}
-                onChange={update("clueWords")}
-                placeholder="Indice n°4..."
-              />
-            </div>
+          <CardContent>
+            <Label htmlFor="name">Mon prénom</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={40}
+              placeholder="Ex : Chloé"
+            />
           </CardContent>
         </Card>
 
+        {questionBlock(
+          "À l'époque du lycée",
+          <GraduationCap className="h-5 w-5 text-investigation" />,
+          LYCEE_QUESTIONS,
+          lyceeFilled,
+        )}
+        {questionBlock(
+          "Aujourd'hui",
+          <Fingerprint className="h-5 w-5 text-investigation" />,
+          AUJOURDHUI_QUESTIONS,
+          todayFilled,
+        )}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline">
               <Link to="/jeu">
                 <Search className="mr-2 h-4 w-4" />
@@ -172,10 +198,16 @@ function Index() {
                 Classement
               </Link>
             </Button>
+            {stored && (
+              <Button variant="destructive" onClick={() => void onDelete()} disabled={saving}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer ma fiche
+              </Button>
+            )}
           </div>
-          <Button onClick={onSubmit} disabled={saving}>
+          <Button onClick={() => void onSubmit()} disabled={saving || !valid}>
             <Fingerprint className="mr-2 h-4 w-4" />
-            {saving ? "Enregistrement..." : "Déposer ma fiche"}
+            {saving ? "Enregistrement..." : stored ? "Mettre à jour ma fiche" : "Déposer ma fiche"}
           </Button>
         </div>
       </div>

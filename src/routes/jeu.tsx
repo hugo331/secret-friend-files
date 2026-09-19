@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ArrowRight, Fingerprint, Trophy } from "lucide-react";
+import { ArrowRight, Eye, Fingerprint, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { findPlayer, getGameState, submitGuess } from "@/lib/game.functions";
+import { findPlayer, getCardClues, getGameState, submitGuess } from "@/lib/game.functions";
+import type { Clue } from "@/lib/questions";
 
 export const Route = createFileRoute("/jeu")({
   component: GamePage,
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/jeu")({
   }),
 });
 
-type Fiche = { id: string; memory: string; job: string; passion: string; words: string };
+type Fiche = { id: string; clueCount: number };
 type State = {
   me: { id: string; name: string };
   score: number;
@@ -36,15 +37,21 @@ type State = {
   cards: Fiche[];
 };
 
+const ROTATIONS = ["-rotate-2", "rotate-1", "rotate-2", "-rotate-1", "rotate-1", "-rotate-2"];
+
 function GamePage() {
   const find = useServerFn(findPlayer);
   const load = useServerFn(getGameState);
+  const fetchClues = useServerFn(getCardClues);
   const guess = useServerFn(submitGuess);
 
   const [nameInput, setNameInput] = useState("");
   const [state, setState] = useState<State | null>(null);
+  const [clues, setClues] = useState<Clue[]>([]);
+  const [revealed, setRevealed] = useState(0);
+  const [totalClues, setTotalClues] = useState(0);
   const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<{ correct: boolean; realName: string } | null>(null);
+  const [result, setResult] = useState<{ correct: boolean; points: number; realName: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -59,6 +66,22 @@ function GamePage() {
       localStorage.removeItem("enquete_player");
     }
   }, [load]);
+
+  const current = state?.cards[0];
+
+  useEffect(() => {
+    if (!state || !current) return;
+    setClues([]);
+    setAnswer("");
+    setResult(null);
+    void fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: 1 } })
+      .then((res) => {
+        setClues(res.clues);
+        setRevealed(1);
+        setTotalClues(res.totalClues);
+      })
+      .catch(() => toast.error("Impossible de charger la fiche."));
+  }, [state?.me.id, current?.id, fetchClues, state]);
 
   const identify = async () => {
     if (!nameInput.trim()) return;
@@ -78,21 +101,32 @@ function GamePage() {
     }
   };
 
-  const current = state?.cards[0];
+  const potential = Math.max(0, totalClues - revealed);
+
+  const reveal = async () => {
+    if (!state || !current || revealed >= totalClues) return;
+    setBusy(true);
+    try {
+      const next = revealed + 1;
+      const res = await fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: next } });
+      setClues(res.clues);
+      setRevealed(next);
+    } catch {
+      toast.error("Impossible de révéler l'indice.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const send = async () => {
     if (!state || !current || !answer.trim()) return;
     setBusy(true);
     try {
       const res = await guess({
-        data: { playerId: state.me.id, targetId: current.id, answer },
+        data: { playerId: state.me.id, targetId: current.id, answer, revealed },
       });
       setResult(res);
-      setState({
-        ...state,
-        score: state.score + (res.correct ? 1 : 0),
-        answered: state.answered + 1,
-      });
+      setState({ ...state, score: state.score + res.points, answered: state.answered + 1 });
     } catch {
       toast.error("Réponse non enregistrée, réessaie.");
     } finally {
@@ -145,9 +179,7 @@ function GamePage() {
           <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
           <div className="poster-tape -right-8 -top-2 rotate-45" />
           <p className="font-poster-title text-2xl uppercase tracking-wide">Enquête bouclée</p>
-          <p className="font-poster-hand text-4xl text-poster-ink">
-            {state.score} / {state.total} points
-          </p>
+          <p className="font-poster-hand text-4xl text-poster-ink">{state.score} points</p>
           <p className="text-sm text-muted-foreground">
             {state.total === 0
               ? "Aucune autre fiche pour l'instant, reviens plus tard."
@@ -164,20 +196,12 @@ function GamePage() {
     );
   }
 
-  const clues = [
-    { q: "Souvenir marquant :", a: current.memory, rotate: "-rotate-2" },
-    { q: "Aujourd'hui :", a: current.job, rotate: "rotate-1" },
-    { q: "Passion du moment :", a: current.passion, rotate: "rotate-2" },
-    { q: "En 3 mots :", a: current.words, rotate: "-rotate-1" },
-  ];
-
   return (
     <Shell>
       <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <span>Détective {state.me.name}</span>
         <span>
-          Fiche {state.total - state.cards.length + 1} / {state.total} — {state.score} pt
-          {state.score > 1 ? "s" : ""}
+          Fiche {state.total - state.cards.length + 1} / {state.total} — {state.score} pts
         </span>
       </div>
 
@@ -195,12 +219,10 @@ function GamePage() {
           </div>
 
           <div className="flex flex-wrap items-start justify-center gap-4">
-            {clues.map((c) => (
-              <div key={c.q} className={`poster-card ${c.rotate} w-full max-w-sm`}>
+            {clues.map((c, i) => (
+              <div key={c.q} className={`poster-card ${ROTATIONS[i % ROTATIONS.length]} w-full max-w-sm`}>
                 <p className="font-poster-hand text-sm italic text-muted-foreground">{c.q}</p>
-                <p className="font-poster-hand text-xl font-bold leading-tight text-poster-ink">
-                  {c.a || "•••"}
-                </p>
+                <p className="font-poster-hand text-xl font-bold leading-tight text-poster-ink">{c.a}</p>
               </div>
             ))}
           </div>
@@ -209,7 +231,7 @@ function GamePage() {
             {result ? (
               <>
                 <p className="font-poster-title text-base uppercase tracking-wider">
-                  {result.correct ? "Bravo !" : "Raté..."}
+                  {result.correct ? `Bravo ! +${result.points} pts` : "Raté... 0 pt"}
                 </p>
                 <p className="font-poster-hand text-3xl text-poster-ink">{result.realName}</p>
                 <Button onClick={next} className="w-full">
@@ -222,18 +244,33 @@ function GamePage() {
                 <p className="font-poster-title text-sm uppercase tracking-wider">
                   Prénom de l'accusé·e
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  En jeu : {potential} pt{potential > 1 ? "s" : ""} — chaque indice révélé ou erreur
+                  coûte 1 point.
+                </p>
                 <Input
                   value={answer}
                   maxLength={40}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void send()}
-                  placeholder="Ton unique réponse..."
+                  placeholder="Qui se cache derrière ?"
                   className="text-center"
                 />
-                <Button onClick={() => void send()} disabled={busy} className="w-full">
-                  <Fingerprint className="mr-2 h-4 w-4" />
-                  Valider ma réponse
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => void reveal()}
+                    disabled={busy || revealed >= totalClues}
+                    className="flex-1"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Indice ({revealed}/{totalClues})
+                  </Button>
+                  <Button onClick={() => void send()} disabled={busy} className="flex-1">
+                    <Fingerprint className="mr-2 h-4 w-4" />
+                    Accuser
+                  </Button>
+                </div>
               </>
             )}
           </div>
