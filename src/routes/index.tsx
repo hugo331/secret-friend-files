@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { Fingerprint, GraduationCap, Search, Trash2, Trophy, User } from "lucide-react";
+import { Fingerprint, GraduationCap, Search, Trash2, Trophy, User, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,16 @@ function Index() {
     }
   };
 
+  // Sur un appareil partagé, la fiche précédente reste enregistrée dans le
+  // navigateur : sans ça, la personne suivante écraserait la fiche de la
+  // précédente au lieu d'en créer une nouvelle.
+  const startNewPlayer = () => {
+    localStorage.removeItem("enquete_player");
+    setStored(null);
+    setName("");
+    setAnswers({});
+  };
+
   const onDelete = async () => {
     if (!stored) return;
     if (!window.confirm("Supprimer définitivement ta fiche ?")) return;
@@ -162,15 +172,28 @@ function Index() {
             </CardTitle>
             <CardDescription>Ton prénom reste caché jusqu'à la révélation.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Label htmlFor="name">Mon prénom</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={40}
-              placeholder="Ex : Chloé"
-            />
+          <CardContent className="space-y-3">
+            {stored && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-muted-foreground/40 bg-muted/50 px-3 py-2 text-sm">
+                <span>
+                  Fiche enregistrée sur cet appareil : <strong>{stored.name}</strong>
+                </span>
+                <Button type="button" variant="ghost" size="sm" onClick={startNewPlayer}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Ce n'est pas moi, nouvelle fiche
+                </Button>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="name">Mon prénom</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={40}
+                placeholder="Ex : Chloé"
+              />
+            </div>
           </CardContent>
         </Card>
 
