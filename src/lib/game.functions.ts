@@ -121,12 +121,17 @@ export const getGameState = createServerFn({ method: "POST" })
     const done = new Set((guesses ?? []).map((g) => g.target_id));
     const score = (guesses ?? []).reduce((sum, g) => sum + (g.points ?? 0), 0);
 
+    // Les vieilles fiches (créées avant le système à 10 indices, ou
+    // incomplètes) n'ont aucun indice exploitable : on les ignore pour ne
+    // jamais faire deviner une fiche vide.
+    const playable = (others ?? []).filter((o) => countAnswers(o.clues) > 0);
+
     return {
       me: { id: me.id, name: me.name },
       score,
-      answered: done.size,
-      total: (others ?? []).length,
-      cards: (others ?? [])
+      answered: playable.filter((o) => done.has(o.id)).length,
+      total: playable.length,
+      cards: playable
         .filter((o) => !done.has(o.id))
         .map((o) => ({ id: o.id, clueCount: countAnswers(o.clues) })),
     };
