@@ -79,7 +79,7 @@ function GamePage() {
     void fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: 1 } })
       .then((res) => {
         setClues(res.clues);
-        setRevealed(1);
+        setRevealed(res.clues.length);
         setTotalClues(res.totalClues);
       })
       .catch(() => toast.error("Impossible de charger la fiche."));
