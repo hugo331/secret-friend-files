@@ -52,6 +52,7 @@ function GamePage() {
   const [totalClues, setTotalClues] = useState(0);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<{ correct: boolean; points: number; realName: string } | null>(null);
+  const [attempts, setAttempts] = useState(0);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -74,6 +75,7 @@ function GamePage() {
     setClues([]);
     setAnswer("");
     setResult(null);
+    setAttempts(0);
     void fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: 1 } })
       .then((res) => {
         setClues(res.clues);
@@ -121,12 +123,23 @@ function GamePage() {
   const send = async () => {
     if (!state || !current || !answer.trim()) return;
     setBusy(true);
+    const nextAttempts = attempts + 1;
     try {
       const res = await guess({
-        data: { playerId: state.me.id, targetId: current.id, answer, revealed },
+        data: { playerId: state.me.id, targetId: current.id, answer, revealed, attempts: nextAttempts },
       });
-      setResult(res);
-      setState({ ...state, score: state.score + res.points, answered: state.answered + 1 });
+      setAttempts(nextAttempts);
+      setAnswer("");
+      if (res.done) {
+        setResult(res);
+        setState({ ...state, score: state.score + res.points, answered: state.answered + 1 });
+      } else {
+        // Mauvaise réponse mais il reste des indices : un de plus se
+        // dévoile automatiquement et on peut retenter.
+        setClues(res.clues);
+        setRevealed(res.revealed);
+        toast.error(`Raté ! Un indice de plus se dévoile (-1 pt).`);
+      }
     } catch {
       toast.error("Réponse non enregistrée, réessaie.");
     } finally {
