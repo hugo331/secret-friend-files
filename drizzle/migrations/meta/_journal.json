@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789815055105,
+      "tag": "0000_evolution_indices_et_score",
+      "breakpoints": true
+    }
+  ]
+}

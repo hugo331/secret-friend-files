@@ -1,0 +1,8 @@
+ALTER TABLE public.players
+  ADD COLUMN clues JSONB NOT NULL DEFAULT '[]'::jsonb,
+  ADD COLUMN delete_token TEXT,
+  ADD COLUMN removed BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE public.guesses
+  ADD COLUMN points INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN attempts INTEGER NOT NULL DEFAULT 1;

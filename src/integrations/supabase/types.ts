@@ -17,26 +17,32 @@ export type Database = {
       guesses: {
         Row: {
           answer: string
+          attempts: number
           correct: boolean
           created_at: string
           guesser_id: string
           id: string
+          points: number
           target_id: string
         }
         Insert: {
           answer: string
+          attempts?: number
           correct: boolean
           created_at?: string
           guesser_id: string
           id?: string
+          points?: number
           target_id: string
         }
         Update: {
           answer?: string
+          attempts?: number
           correct?: boolean
           created_at?: string
           guesser_id?: string
           id?: string
+          points?: number
           target_id?: string
         }
         Relationships: [
@@ -62,10 +68,13 @@ export type Database = {
           clue_memory: string
           clue_passion: string
           clue_words: string
+          clues: Json
           created_at: string
+          delete_token: string | null
           id: string
           name: string
           name_key: string
+          removed: boolean
           updated_at: string
         }
         Insert: {
@@ -73,10 +82,13 @@ export type Database = {
           clue_memory?: string
           clue_passion?: string
           clue_words?: string
+          clues?: Json
           created_at?: string
+          delete_token?: string | null
           id?: string
           name: string
           name_key: string
+          removed?: boolean
           updated_at?: string
         }
         Update: {
@@ -84,10 +96,13 @@ export type Database = {
           clue_memory?: string
           clue_passion?: string
           clue_words?: string
+          clues?: Json
           created_at?: string
+          delete_token?: string | null
           id?: string
           name?: string
           name_key?: string
+          removed?: boolean
           updated_at?: string
         }
         Relationships: []
