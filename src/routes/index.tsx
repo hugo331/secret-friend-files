@@ -65,10 +65,15 @@ function Index() {
     }
     setSaving(true);
     try {
-      const clues = [...LYCEE_QUESTIONS, ...AUJOURDHUI_QUESTIONS].map((q) => ({
-        q,
-        a: (answers[q] ?? "").trim(),
-      }));
+      // Le serveur attend exactement 10 indices remplis (5 lycée + 5
+      // aujourd'hui) : on ne garde que les questions auxquelles on a
+      // répondu, pas la liste complète des questions proposées.
+      const clues = [...LYCEE_QUESTIONS, ...AUJOURDHUI_QUESTIONS]
+        .filter((q) => (answers[q] ?? "").trim().length > 0)
+        .map((q) => ({
+          q,
+          a: (answers[q] ?? "").trim(),
+        }));
       const player = await save({ data: { name, deleteToken: stored?.deleteToken, clues } });
       const next = { id: player.id, name: player.name, deleteToken: player.deleteToken };
       localStorage.setItem("enquete_player", JSON.stringify(next));
