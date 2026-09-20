@@ -216,6 +216,7 @@ const clueStateSchema = z.object({
   targetId: z.string().uuid(),
   enquete: enqueteSchema,
   revealed: z.number().int().min(0).max(MAX_PER_ENQUETE),
+  preview: z.boolean().optional(),
 });
 
 export const getCardClues = createServerFn({ method: "POST" })
@@ -223,7 +224,9 @@ export const getCardClues = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (getEnqueteStatus(data.enquete) !== "open") {
+    // Le mode aperçu (organisateur) permet de tester le déroulé d'une
+    // enquête avant l'ouverture officielle de sa fenêtre d'accès.
+    if (!data.preview && getEnqueteStatus(data.enquete) !== "open") {
       throw new Error("Cette enquête n'est pas accessible actuellement");
     }
 
@@ -257,6 +260,7 @@ const guessSchema = z.object({
   enquete: enqueteSchema,
   answer: z.string().trim().min(1).max(40),
   revealed: z.number().int().min(1).max(MAX_PER_ENQUETE),
+  preview: z.boolean().optional(),
 });
 
 // Une seule tentative par suspect et par enquête : le participant consulte
@@ -270,7 +274,7 @@ export const submitGuess = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    if (getEnqueteStatus(data.enquete) !== "open") {
+    if (!data.preview && getEnqueteStatus(data.enquete) !== "open") {
       throw new Error("Cette enquête n'est pas accessible actuellement");
     }
 
