@@ -39,12 +39,12 @@ export const Route = createFileRoute("/")({
       { title: "Dossier d'enquête secret — Dépose ta fiche" },
       {
         name: "description",
-        content: "Enregistre ton prénom et 10 indices (5 lycée, 5 aujourd'hui) avant la soirée.",
+        content: "Enregistre ton prénom et 20 indices (10 lycée, 10 aujourd'hui) avant la soirée.",
       },
       { property: "og:title", content: "Dossier d'enquête secret — Dépose ta fiche" },
       {
         property: "og:description",
-        content: "Enregistre ton prénom et 10 indices (5 lycée, 5 aujourd'hui) avant la soirée.",
+        content: "Enregistre ton prénom et 20 indices (10 lycée, 10 aujourd'hui) avant la soirée.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

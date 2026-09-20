@@ -1,25 +1,35 @@
 import type { Enquete } from "./schedule";
 
 export const LYCEE_QUESTIONS = [
-  "Ton lieu de naissance ?",
+  "Dans quelle ville habitais-tu au lycée ?",
   "Quel bac as-tu fait ?",
-  "Ta principale bêtise au lycée ?",
-  "Ton meilleur souvenir au lycée ?",
-  "Ton rêve de métier à l'époque du lycée ?",
+  "Quelle était ta matière ou ton professeur préféré ?",
+  "Quelle était ta matière ou ton professeur détesté ?",
+  "Quel était ton groupe de musique ou chanteur préféré à l'époque ?",
+  "Avais-tu une caractéristique vestimentaire particulière ?",
+  "Quelle était ta principale bêtise au lycée ?",
+  "Quel était ton meilleur souvenir au lycée ?",
+  "Quel était ton meilleur souvenir en dehors du lycée avec nous ?",
+  "Cite un(e) ami(e) dont tu étais particulièrement proche au lycée.",
 ] as const;
 
 export const AUJOURDHUI_QUESTIONS = [
-  "Dans quelle ville habites-tu ?",
-  "Quelle profession exerces-tu ?",
+  "Dans quelle ville habites-tu aujourd'hui ?",
   "Es-tu en couple ou célibataire ?",
+  "Combien d'enfants as-tu ?",
+  "Quelle profession exerces-tu ?",
+  "Quel est ton principal diplôme obtenu après le bac ?",
+  "Avec qui es-tu principalement resté en contact depuis l'époque du lycée ?",
+  "Quel est ton groupe ou chanteur préféré aujourd'hui ?",
   "Quelle est ta passion aujourd'hui ?",
+  "Quel est ton loisir préféré aujourd'hui ?",
   "Quel est ton plus beau voyage ?",
 ] as const;
 
 // Nombre minimum d'indices requis pour chaque enquête. Le nombre maximum
 // n'est pas fixé dans le code : chacun peut ajouter des indices bonus en
 // plus de ces questions de base (jusqu'à MAX_EXTRA_PER_ENQUETE).
-export const REQUIRED_PER_ENQUETE = 5;
+export const REQUIRED_PER_ENQUETE = 10;
 export const MAX_EXTRA_PER_ENQUETE = 5;
 
 export type Clue = { q: string; a: string; enquete: Enquete };

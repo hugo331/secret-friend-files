@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
-import { ArrowRight, Eye, Fingerprint, Lock, Trophy } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Eye, FlaskConical, Fingerprint, Lock, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
 import { Leaderboard } from "@/components/Leaderboard";
@@ -68,6 +68,18 @@ function GamePage() {
     realName: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
+  const previewTaps = useRef(0);
+
+  // Mode aperçu (organisateur) : permet de voir à quoi ressemble chacune des
+  // deux enquêtes avant l'ouverture officielle de leur fenêtre d'accès.
+  const secretPreviewTap = () => {
+    previewTaps.current += 1;
+    if (previewTaps.current >= 3) {
+      setPreviewMode(true);
+      toast.success("Mode aperçu activé : les deux enquêtes sont visibles avant leur ouverture.");
+    }
+  };
 
   const loadState = async (id: string, targetEnquete: Enquete) => {
     const res = await load({ data: { playerId: id, enquete: targetEnquete } });
@@ -101,11 +113,19 @@ function GamePage() {
   const current = state?.cards[0];
 
   useEffect(() => {
-    if (!state || !current || state.status !== "open") return;
+    if (!state || !current || (!previewMode && state.status !== "open")) return;
     setClues([]);
     setAnswer("");
     setResult(null);
-    void fetchClues({ data: { playerId: state.me.id, targetId: current.id, enquete, revealed: 1 } })
+    void fetchClues({
+      data: {
+        playerId: state.me.id,
+        targetId: current.id,
+        enquete,
+        revealed: 1,
+        preview: previewMode,
+      },
+    })
       .then((res) => {
         setClues(res.clues);
         setRevealed(res.clues.length);
@@ -115,7 +135,7 @@ function GamePage() {
     // `state` change de référence à chaque bonne réponse sans que la fiche
     // affichée ne change : l'inclure ici relancerait cet effet à tort.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.me.id, current?.id, enquete, fetchClues]);
+  }, [state?.me.id, current?.id, enquete, fetchClues, previewMode]);
 
   const switchEnquete = async (next: Enquete) => {
     if (!playerId || next === enquete || busy) return;
@@ -158,7 +178,13 @@ function GamePage() {
     try {
       const next = revealed + 1;
       const res = await fetchClues({
-        data: { playerId: state.me.id, targetId: current.id, enquete, revealed: next },
+        data: {
+          playerId: state.me.id,
+          targetId: current.id,
+          enquete,
+          revealed: next,
+          preview: previewMode,
+        },
       });
       setClues(res.clues);
       setRevealed(next);
@@ -184,7 +210,14 @@ function GamePage() {
     setBusy(true);
     try {
       const res = await guess({
-        data: { playerId: state.me.id, targetId: current.id, enquete, answer, revealed },
+        data: {
+          playerId: state.me.id,
+          targetId: current.id,
+          enquete,
+          answer,
+          revealed,
+          preview: previewMode,
+        },
       });
       setAnswer("");
       setResult(res);
@@ -252,7 +285,7 @@ function GamePage() {
     </Tabs>
   );
 
-  if (state.status !== "open") {
+  if (state.status !== "open" && !previewMode) {
     const w = state.windows[enquete];
     return (
       <Shell>
@@ -261,7 +294,10 @@ function GamePage() {
           <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
           <div className="poster-tape -right-8 -top-2 rotate-45" />
           <Lock className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="font-poster-title text-xl uppercase tracking-wide">
+          <p
+            className="cursor-default select-none font-poster-title text-xl uppercase tracking-wide"
+            onClick={secretPreviewTap}
+          >
             Enquête « {ENQUETE_LABELS[enquete]} »{" "}
             {w.status === "upcoming" ? "pas encore ouverte" : "terminée"}
           </p>
@@ -276,10 +312,18 @@ function GamePage() {
     );
   }
 
+  const previewBanner = previewMode && (
+    <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-classified bg-classified/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-classified-foreground">
+      <FlaskConical className="h-4 w-4" />
+      Mode aperçu organisateur — les fenêtres d'accès sont ignorées
+    </div>
+  );
+
   if (!current) {
     return (
       <Shell>
         {enqueteTabs}
+        {previewBanner}
         <div className="poster-board relative space-y-6 px-6 py-12 text-center shadow-xl">
           <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
           <div className="poster-tape -right-8 -top-2 rotate-45" />
@@ -307,6 +351,7 @@ function GamePage() {
   return (
     <Shell>
       {enqueteTabs}
+      {previewBanner}
       <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <span>Détective {state.me.name}</span>
         <span>
