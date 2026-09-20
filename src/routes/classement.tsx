@@ -134,16 +134,32 @@ function LeaderboardPage() {
                     {cards.map((p) => (
                       <AccordionItem key={p.id} value={p.id}>
                         <AccordionTrigger className="font-poster-title text-sm uppercase tracking-wide">
-                          {p.name} ({p.clues.length} indices)
+                          {p.name} ({p.lycee.length + p.aujourdhui.length} indices)
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2">
-                            {p.clues.map((c) => (
-                              <p key={c.q} className="text-sm">
-                                <span className="text-muted-foreground">{c.q}</span>{" "}
-                                <span className="font-medium">{c.a}</span>
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Lycée
                               </p>
-                            ))}
+                              {p.lycee.map((c) => (
+                                <p key={c.q} className="text-sm">
+                                  <span className="text-muted-foreground">{c.q}</span>{" "}
+                                  <span className="font-medium">{c.a}</span>
+                                </p>
+                              ))}
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Aujourd'hui
+                              </p>
+                              {p.aujourdhui.map((c) => (
+                                <p key={c.q} className="text-sm">
+                                  <span className="text-muted-foreground">{c.q}</span>{" "}
+                                  <span className="font-medium">{c.a}</span>
+                                </p>
+                              ))}
+                            </div>
                             <Button
                               variant="outline"
                               size="sm"

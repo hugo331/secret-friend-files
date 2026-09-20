@@ -20,6 +20,7 @@ export type Database = {
           attempts: number
           correct: boolean
           created_at: string
+          enquete: string
           guesser_id: string
           id: string
           points: number
@@ -30,6 +31,7 @@ export type Database = {
           attempts?: number
           correct: boolean
           created_at?: string
+          enquete?: string
           guesser_id: string
           id?: string
           points?: number
@@ -40,6 +42,7 @@ export type Database = {
           attempts?: number
           correct?: boolean
           created_at?: string
+          enquete?: string
           guesser_id?: string
           id?: string
           points?: number

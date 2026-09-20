@@ -1,7 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
-import { Fingerprint, GraduationCap, Search, Trash2, Trophy, User, UserPlus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  Fingerprint,
+  GraduationCap,
+  Plus,
+  Search,
+  Trash2,
+  Trophy,
+  User,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +19,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { deleteMyPlayer, savePlayer } from "@/lib/game.functions";
-import { AUJOURDHUI_QUESTIONS, LYCEE_QUESTIONS } from "@/lib/questions";
+import {
+  AUJOURDHUI_QUESTIONS,
+  LYCEE_QUESTIONS,
+  MAX_EXTRA_PER_ENQUETE,
+  REQUIRED_PER_ENQUETE,
+} from "@/lib/questions";
+import {
+  formatSchedule,
+  isSubmissionOpen,
+  SUBMISSION_DEADLINE,
+  type Enquete,
+} from "@/lib/schedule";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -32,14 +53,18 @@ export const Route = createFileRoute("/")({
 });
 
 type StoredPlayer = { id: string; name: string; deleteToken: string };
+type ExtraClue = { id: string; q: string; a: string };
 
 function Index() {
   const [name, setName] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [extras, setExtras] = useState<Record<Enquete, ExtraClue[]>>({ lycee: [], aujourdhui: [] });
   const [saving, setSaving] = useState(false);
   const [stored, setStored] = useState<StoredPlayer | null>(null);
+  const [adminOverride, setAdminOverride] = useState(false);
   const save = useServerFn(savePlayer);
   const remove = useServerFn(deleteMyPlayer);
+  const adminTaps = useRef(0);
 
   useEffect(() => {
     const raw = localStorage.getItem("enquete_player");
@@ -53,26 +78,59 @@ function Index() {
     }
   }, []);
 
+  const submissionOpen = isSubmissionOpen();
+  const secretTap = () => {
+    adminTaps.current += 1;
+    if (adminTaps.current >= 3) {
+      setAdminOverride(true);
+      toast.success("Mode organisateur activé : dépôt débloqué après la deadline.");
+    }
+  };
+
   const lyceeFilled = LYCEE_QUESTIONS.filter((q) => (answers[q] ?? "").trim()).length;
   const todayFilled = AUJOURDHUI_QUESTIONS.filter((q) => (answers[q] ?? "").trim()).length;
-  const valid = name.trim().length > 0 && lyceeFilled === 5 && todayFilled === 5;
+  const valid =
+    name.trim().length > 0 &&
+    lyceeFilled === REQUIRED_PER_ENQUETE &&
+    todayFilled === REQUIRED_PER_ENQUETE;
+
+  const addExtra = (enquete: Enquete) => {
+    setExtras((prev) => {
+      if (prev[enquete].length >= MAX_EXTRA_PER_ENQUETE) return prev;
+      return { ...prev, [enquete]: [...prev[enquete], { id: crypto.randomUUID(), q: "", a: "" }] };
+    });
+  };
+
+  const updateExtra = (enquete: Enquete, id: string, field: "q" | "a", value: string) => {
+    setExtras((prev) => ({
+      ...prev,
+      [enquete]: prev[enquete].map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+    }));
+  };
+
+  const removeExtra = (enquete: Enquete, id: string) => {
+    setExtras((prev) => ({ ...prev, [enquete]: prev[enquete].filter((c) => c.id !== id) }));
+  };
 
   const onSubmit = async () => {
     if (!valid) {
-      toast.error("Il faut ton prénom + 5 réponses lycée + 5 réponses aujourd'hui.");
+      toast.error(
+        `Il faut ton prénom + ${REQUIRED_PER_ENQUETE} réponses lycée + ${REQUIRED_PER_ENQUETE} réponses aujourd'hui.`,
+      );
       return;
     }
     setSaving(true);
     try {
-      // Le serveur attend exactement 10 indices remplis (5 lycée + 5
-      // aujourd'hui) : on ne garde que les questions auxquelles on a
-      // répondu, pas la liste complète des questions proposées.
-      const clues = [...LYCEE_QUESTIONS, ...AUJOURDHUI_QUESTIONS]
-        .filter((q) => (answers[q] ?? "").trim().length > 0)
-        .map((q) => ({
-          q,
-          a: (answers[q] ?? "").trim(),
-        }));
+      const fixedClues = [
+        ...LYCEE_QUESTIONS.map((q) => ({ q, a: answers[q], enquete: "lycee" as const })),
+        ...AUJOURDHUI_QUESTIONS.map((q) => ({ q, a: answers[q], enquete: "aujourdhui" as const })),
+      ];
+      const extraClues = (["lycee", "aujourdhui"] as const).flatMap((enquete) =>
+        extras[enquete]
+          .filter((c) => c.q.trim() && c.a.trim())
+          .map((c) => ({ q: c.q.trim(), a: c.a.trim(), enquete })),
+      );
+      const clues = [...fixedClues, ...extraClues];
       const player = await save({ data: { name, deleteToken: stored?.deleteToken, clues } });
       const next = { id: player.id, name: player.name, deleteToken: player.deleteToken };
       localStorage.setItem("enquete_player", JSON.stringify(next));
@@ -93,6 +151,7 @@ function Index() {
     setStored(null);
     setName("");
     setAnswers({});
+    setExtras({ lycee: [], aujourdhui: [] });
   };
 
   const onDelete = async () => {
@@ -118,6 +177,7 @@ function Index() {
     icon: React.ReactNode,
     questions: readonly string[],
     filled: number,
+    enquete: Enquete,
   ) => (
     <Card className="border-l-4 border-l-investigation">
       <CardHeader>
@@ -125,7 +185,9 @@ function Index() {
           {icon}
           {title}
         </CardTitle>
-        <CardDescription>Réponds à ces 5 questions — {filled}/5 remplies.</CardDescription>
+        <CardDescription>
+          Réponds à ces {REQUIRED_PER_ENQUETE} questions — {filled}/{REQUIRED_PER_ENQUETE} remplies.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {questions.map((q) => (
@@ -141,9 +203,81 @@ function Index() {
             />
           </div>
         ))}
+
+        {extras[enquete].length > 0 && (
+          <div className="space-y-3 border-t border-dashed pt-3">
+            {extras[enquete].map((c, i) => (
+              <div key={c.id} className="space-y-1.5 rounded-md border border-dashed p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs text-muted-foreground">Indice bonus {i + 1}</Label>
+                  <button
+                    type="button"
+                    aria-label="Supprimer cet indice bonus"
+                    onClick={() => removeExtra(enquete, c.id)}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <Input
+                  placeholder="Ta question"
+                  maxLength={120}
+                  value={c.q}
+                  onChange={(e) => updateExtra(enquete, c.id, "q", e.target.value)}
+                />
+                <Input
+                  placeholder="Ta réponse"
+                  maxLength={300}
+                  value={c.a}
+                  onChange={(e) => updateExtra(enquete, c.id, "a", e.target.value)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {extras[enquete].length < MAX_EXTRA_PER_ENQUETE && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => addExtra(enquete)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Ajouter un indice bonus
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
+
+  if (!submissionOpen && !adminOverride) {
+    return (
+      <div className="min-h-screen bg-background px-4 py-10 text-foreground">
+        <div className="mx-auto max-w-xl space-y-6 text-center">
+          <h1
+            className="font-poster-title cursor-default select-none text-3xl uppercase tracking-wide"
+            onClick={secretTap}
+          >
+            Inscriptions closes
+          </h1>
+          <p className="text-muted-foreground">
+            Le dépôt des fiches était ouvert jusqu'au {formatSchedule(SUBMISSION_DEADLINE)}.
+            Rendez-vous sur la page jeu pour l'enquête !
+          </p>
+          <div className="flex justify-center gap-3">
+            <Button asChild variant="outline">
+              <Link to="/jeu">
+                <Search className="mr-2 h-4 w-4" />
+                Jouer
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/classement">
+                <Trophy className="mr-2 h-4 w-4" />
+                Classement
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background px-4 py-10 text-foreground">
@@ -153,12 +287,18 @@ function Index() {
             <Fingerprint className="mr-2 h-4 w-4" />
             Dossier confidentiel
           </div>
-          <h1 className="font-poster-title text-3xl uppercase tracking-wide sm:text-4xl">
+          <h1
+            className="font-poster-title cursor-default select-none text-3xl uppercase tracking-wide sm:text-4xl"
+            onClick={secretTap}
+          >
             Dossier d'enquête secret
           </h1>
           <p className="text-muted-foreground">
-            Dépose ta fiche avant la soirée : 5 indices sur tes années lycée, 5 sur ta vie
-            d'aujourd'hui.
+            Dépose ta fiche avant la soirée : {REQUIRED_PER_ENQUETE} indices sur tes années lycée,{" "}
+            {REQUIRED_PER_ENQUETE} sur ta vie d'aujourd'hui.
+          </p>
+          <p className="text-xs font-medium uppercase tracking-wide text-classified-foreground">
+            Dépôt ouvert jusqu'au {formatSchedule(SUBMISSION_DEADLINE)}
           </p>
         </header>
 
@@ -200,12 +340,14 @@ function Index() {
           <GraduationCap className="h-5 w-5 text-investigation" />,
           LYCEE_QUESTIONS,
           lyceeFilled,
+          "lycee",
         )}
         {questionBlock(
           "Aujourd'hui",
           <Fingerprint className="h-5 w-5 text-investigation" />,
           AUJOURDHUI_QUESTIONS,
           todayFilled,
+          "aujourdhui",
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">

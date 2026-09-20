@@ -1,15 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ArrowRight, Eye, Fingerprint, Trophy } from "lucide-react";
+import { ArrowRight, Eye, Fingerprint, Lock, Trophy } from "lucide-react";
 import { toast } from "sonner";
 
+import { Leaderboard } from "@/components/Leaderboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { findPlayer, getCardClues, getGameState, submitGuess } from "@/lib/game.functions";
 import type { Clue } from "@/lib/questions";
+import { ENQUETE_LABELS, formatSchedule, type Enquete, type EnqueteStatus } from "@/lib/schedule";
 
 export const Route = createFileRoute("/jeu")({
   component: GamePage,
@@ -32,11 +35,14 @@ export const Route = createFileRoute("/jeu")({
 });
 
 type Fiche = { id: string; clueCount: number };
+type Windows = Record<Enquete, { status: EnqueteStatus; start: string; end: string | null }>;
 type State = {
   me: { id: string; name: string };
   score: number;
   answered: number;
   total: number;
+  status: EnqueteStatus;
+  windows: Windows;
   cards: Fiche[];
 };
 
@@ -49,6 +55,8 @@ function GamePage() {
   const guess = useServerFn(submitGuess);
 
   const [nameInput, setNameInput] = useState("");
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [enquete, setEnquete] = useState<Enquete>("lycee");
   const [state, setState] = useState<State | null>(null);
   const [clues, setClues] = useState<Clue[]>([]);
   const [revealed, setRevealed] = useState(0);
@@ -59,42 +67,69 @@ function GamePage() {
     points: number;
     realName: string;
   } | null>(null);
-  const [attempts, setAttempts] = useState(0);
   const [busy, setBusy] = useState(false);
+
+  const loadState = async (id: string, targetEnquete: Enquete) => {
+    const res = await load({ data: { playerId: id, enquete: targetEnquete } });
+    setState(res);
+    // Si l'enquête choisie par défaut n'est pas ouverte mais que l'autre
+    // l'est, on bascule automatiquement dessus.
+    if (res.status !== "open") {
+      const other: Enquete = targetEnquete === "lycee" ? "aujourdhui" : "lycee";
+      if (res.windows[other].status === "open") {
+        setEnquete(other);
+        const res2 = await load({ data: { playerId: id, enquete: other } });
+        setState(res2);
+        return;
+      }
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("enquete_player");
     if (!stored) return;
     try {
       const p = JSON.parse(stored) as { id: string };
-      void load({ data: { playerId: p.id } })
-        .then(setState)
-        .catch(() => localStorage.removeItem("enquete_player"));
+      setPlayerId(p.id);
+      void loadState(p.id, "lycee").catch(() => localStorage.removeItem("enquete_player"));
     } catch {
       localStorage.removeItem("enquete_player");
     }
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const current = state?.cards[0];
 
   useEffect(() => {
-    if (!state || !current) return;
+    if (!state || !current || state.status !== "open") return;
     setClues([]);
     setAnswer("");
     setResult(null);
-    setAttempts(0);
-    void fetchClues({ data: { playerId: state.me.id, targetId: current.id, revealed: 1 } })
+    void fetchClues({ data: { playerId: state.me.id, targetId: current.id, enquete, revealed: 1 } })
       .then((res) => {
         setClues(res.clues);
         setRevealed(res.clues.length);
         setTotalClues(res.totalClues);
       })
       .catch(() => toast.error("Impossible de charger la fiche."));
-    // `state` et `current` (dérivé de state.cards[0]) changent de référence à chaque mise à
-    // jour du score après une bonne réponse, sans que la fiche affichée ne change vraiment :
-    // les inclure ici relançait cet effet juste après, qui rejetait la fiche comme "déjà jouée".
+    // `state` change de référence à chaque bonne réponse sans que la fiche
+    // affichée ne change : l'inclure ici relancerait cet effet à tort.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.me.id, current?.id, fetchClues]);
+  }, [state?.me.id, current?.id, enquete, fetchClues]);
+
+  const switchEnquete = async (next: Enquete) => {
+    if (!playerId || next === enquete || busy) return;
+    setEnquete(next);
+    setBusy(true);
+    try {
+      const res = await load({ data: { playerId, enquete: next } });
+      setState(res);
+    } catch {
+      toast.error("Impossible de charger cette enquête.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const identify = async () => {
     if (!nameInput.trim()) return;
@@ -106,7 +141,8 @@ function GamePage() {
         return;
       }
       localStorage.setItem("enquete_player", JSON.stringify(player));
-      setState(await load({ data: { playerId: player.id } }));
+      setPlayerId(player.id);
+      await loadState(player.id, enquete);
     } catch {
       toast.error("Connexion impossible, réessaie.");
     } finally {
@@ -122,7 +158,7 @@ function GamePage() {
     try {
       const next = revealed + 1;
       const res = await fetchClues({
-        data: { playerId: state.me.id, targetId: current.id, revealed: next },
+        data: { playerId: state.me.id, targetId: current.id, enquete, revealed: next },
       });
       setClues(res.clues);
       setRevealed(next);
@@ -133,32 +169,26 @@ function GamePage() {
     }
   };
 
+  // Une seule tentative par suspect : on prévient avant d'envoyer, puisqu'une
+  // mauvaise réponse coupe immédiatement l'accès aux indices suivants et
+  // vaut 0 point (plus aucune retentative possible).
   const send = async () => {
     if (!state || !current || !answer.trim()) return;
+    if (
+      !window.confirm(
+        `Valider "${answer.trim()}" ? Si c'est faux, cette enquête est perdue pour ce suspect (0 pt) et tu ne pourras plus voir d'autres indices.`,
+      )
+    ) {
+      return;
+    }
     setBusy(true);
-    const nextAttempts = attempts + 1;
     try {
       const res = await guess({
-        data: {
-          playerId: state.me.id,
-          targetId: current.id,
-          answer,
-          revealed,
-          attempts: nextAttempts,
-        },
+        data: { playerId: state.me.id, targetId: current.id, enquete, answer, revealed },
       });
-      setAttempts(nextAttempts);
       setAnswer("");
-      if (res.done) {
-        setResult(res);
-        setState({ ...state, score: state.score + res.points, answered: state.answered + 1 });
-      } else {
-        // Mauvaise réponse mais il reste des indices : un de plus se
-        // dévoile automatiquement et on peut retenter.
-        setClues(res.clues);
-        setRevealed(res.revealed);
-        toast.error(`Raté ! Un indice de plus se dévoile (-1 pt).`);
-      }
+      setResult(res);
+      setState({ ...state, score: state.score + res.points, answered: state.answered + 1 });
     } catch {
       toast.error("Réponse non enregistrée, réessaie.");
     } finally {
@@ -204,13 +234,58 @@ function GamePage() {
     );
   }
 
+  const remaining = state.cards.length;
+
+  const enqueteTabs = (
+    <Tabs value={enquete} className="w-full">
+      <TabsList className="mx-auto grid w-full max-w-sm grid-cols-2">
+        {(["lycee", "aujourdhui"] as const).map((key) => {
+          const w = state.windows[key];
+          const badge = w.status === "upcoming" ? "🔒" : w.status === "closed" ? "🏁" : "✅";
+          return (
+            <TabsTrigger key={key} value={key} onClick={() => void switchEnquete(key)}>
+              {badge} {ENQUETE_LABELS[key]}
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+    </Tabs>
+  );
+
+  if (state.status !== "open") {
+    const w = state.windows[enquete];
+    return (
+      <Shell>
+        {enqueteTabs}
+        <div className="poster-board relative space-y-4 px-6 py-12 text-center shadow-xl">
+          <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
+          <div className="poster-tape -right-8 -top-2 rotate-45" />
+          <Lock className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="font-poster-title text-xl uppercase tracking-wide">
+            Enquête « {ENQUETE_LABELS[enquete]} »{" "}
+            {w.status === "upcoming" ? "pas encore ouverte" : "terminée"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {w.status === "upcoming"
+              ? `Accès aux indices à partir du ${formatSchedule(new Date(w.start))}.`
+              : `L'accès aux indices s'est terminé le ${formatSchedule(new Date(w.end as string))}.`}
+          </p>
+        </div>
+        <Leaderboard compact />
+      </Shell>
+    );
+  }
+
   if (!current) {
     return (
       <Shell>
+        {enqueteTabs}
         <div className="poster-board relative space-y-6 px-6 py-12 text-center shadow-xl">
           <div className="poster-tape -left-8 -top-2 rotate-[-45deg]" />
           <div className="poster-tape -right-8 -top-2 rotate-45" />
-          <p className="font-poster-title text-2xl uppercase tracking-wide">Enquête bouclée</p>
+          <p className="font-poster-title text-2xl uppercase tracking-wide">
+            Enquête « {ENQUETE_LABELS[enquete]} » bouclée
+          </p>
           <p className="font-poster-hand text-4xl text-poster-ink">{state.score} points</p>
           <p className="text-sm text-muted-foreground">
             {state.total === 0
@@ -224,16 +299,19 @@ function GamePage() {
             </Link>
           </Button>
         </div>
+        <Leaderboard compact />
       </Shell>
     );
   }
 
   return (
     <Shell>
+      {enqueteTabs}
       <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground">
         <span>Détective {state.me.name}</span>
         <span>
-          Fiche {state.total - state.cards.length + 1} / {state.total} — {state.score} pts
+          {remaining} suspect{remaining > 1 ? "s" : ""} restant{remaining > 1 ? "s" : ""} sur{" "}
+          {state.total} — {state.score} pts
         </span>
       </div>
 
@@ -246,7 +324,7 @@ function GamePage() {
         <div className="relative space-y-6">
           <div className="mx-auto w-fit rotate-[-1deg] bg-card px-6 py-2 shadow-md">
             <p className="font-poster-title text-lg uppercase tracking-widest text-investigation sm:text-2xl">
-              Avis de recherche
+              Avis de recherche — {ENQUETE_LABELS[enquete]}
             </p>
           </div>
 
@@ -272,7 +350,7 @@ function GamePage() {
                 </p>
                 <p className="font-poster-hand text-3xl text-poster-ink">{result.realName}</p>
                 <Button onClick={next} className="w-full">
-                  Fiche suivante
+                  Suspect suivant
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </>
@@ -282,8 +360,8 @@ function GamePage() {
                   Prénom de l'accusé·e
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  En jeu : {potential} pt{potential > 1 ? "s" : ""} — chaque indice révélé ou erreur
-                  coûte 1 point.
+                  En jeu : {potential} pt{potential > 1 ? "s" : ""} — une seule tentative, une
+                  mauvaise réponse coûte tous les points restants.
                 </p>
                 <Input
                   value={answer}
@@ -303,7 +381,11 @@ function GamePage() {
                     <Eye className="mr-2 h-4 w-4" />
                     Indice ({revealed}/{totalClues})
                   </Button>
-                  <Button onClick={() => void send()} disabled={busy} className="flex-1">
+                  <Button
+                    onClick={() => void send()}
+                    disabled={busy || !answer.trim()}
+                    className="flex-1"
+                  >
                     <Fingerprint className="mr-2 h-4 w-4" />
                     Accuser
                   </Button>
@@ -313,6 +395,8 @@ function GamePage() {
           </div>
         </div>
       </div>
+
+      <Leaderboard compact />
     </Shell>
   );
 }
