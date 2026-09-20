@@ -2,27 +2,49 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { normalizeName } from "./normalize";
+import { MAX_EXTRA_PER_ENQUETE, REQUIRED_PER_ENQUETE, resolveClueEnquete } from "./questions";
+import { type Enquete, type EnqueteStatus, getEnqueteStatus, ENQUETE_WINDOWS } from "./schedule";
+
+const enqueteSchema = z.enum(["lycee", "aujourdhui"]);
 
 const clueSchema = z.object({
   q: z.string().trim().min(1).max(120),
   a: z.string().trim().min(1).max(300),
+  enquete: enqueteSchema,
 });
+
+const MAX_PER_ENQUETE = REQUIRED_PER_ENQUETE + MAX_EXTRA_PER_ENQUETE;
 
 const saveSchema = z.object({
   name: z.string().trim().min(1).max(40),
   deleteToken: z.string().max(64).optional(),
-  clues: z.array(clueSchema).length(10),
+  clues: z
+    .array(clueSchema)
+    .min(REQUIRED_PER_ENQUETE * 2)
+    .max(MAX_PER_ENQUETE * 2),
 });
 
-function countAnswers(clues: unknown): number {
-  if (!Array.isArray(clues)) return 0;
-  return clues.filter(
-    (c) =>
-      c &&
+type StoredClue = { q: string; a: string; enquete?: Enquete };
+
+function validClues(raw: unknown): StoredClue[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (c): c is StoredClue =>
+      !!c &&
       typeof c === "object" &&
-      typeof (c as { a?: unknown }).a === "string" &&
-      (c as { a: string }).a.trim().length > 0,
-  ).length;
+      typeof (c as StoredClue).q === "string" &&
+      typeof (c as StoredClue).a === "string" &&
+      (c as StoredClue).a.trim().length > 0,
+  );
+}
+
+function cluesForEnquete(
+  raw: unknown,
+  enquete: Enquete,
+): { q: string; a: string; enquete: Enquete }[] {
+  return validClues(raw)
+    .filter((c) => resolveClueEnquete(c) === enquete)
+    .map((c) => ({ q: c.q, a: c.a, enquete }));
 }
 
 function nameMatches(answer: string, targetKey: string, targetName: string): boolean {
@@ -42,6 +64,15 @@ export const savePlayer = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const nameKey = normalizeName(data.name);
     if (!nameKey) throw new Error("Prénom invalide");
+
+    const lyceeCount = data.clues.filter((c) => c.enquete === "lycee").length;
+    const todayCount = data.clues.filter((c) => c.enquete === "aujourdhui").length;
+    if (lyceeCount < REQUIRED_PER_ENQUETE || todayCount < REQUIRED_PER_ENQUETE) {
+      throw new Error(`Il faut au moins ${REQUIRED_PER_ENQUETE} indices dans chaque enquête`);
+    }
+    if (lyceeCount > MAX_PER_ENQUETE || todayCount > MAX_PER_ENQUETE) {
+      throw new Error(`Maximum ${MAX_PER_ENQUETE} indices par enquête`);
+    }
 
     const token = data.deleteToken || crypto.randomUUID();
 
@@ -113,8 +144,23 @@ export const findPlayer = createServerFn({ method: "POST" })
 
 const idSchema = z.object({ playerId: z.string().uuid() });
 
+const enqueteWindowsPayload = () =>
+  (Object.keys(ENQUETE_WINDOWS) as Enquete[]).reduce(
+    (acc, key) => {
+      acc[key] = {
+        status: getEnqueteStatus(key),
+        start: ENQUETE_WINDOWS[key].start.toISOString(),
+        end: ENQUETE_WINDOWS[key].end?.toISOString() ?? null,
+      };
+      return acc;
+    },
+    {} as Record<Enquete, { status: EnqueteStatus; start: string; end: string | null }>,
+  );
+
+const gameStateSchema = z.object({ playerId: z.string().uuid(), enquete: enqueteSchema });
+
 export const getGameState = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => idSchema.parse(input))
+  .inputValidator((input: unknown) => gameStateSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -125,6 +171,9 @@ export const getGameState = createServerFn({ method: "POST" })
       .eq("removed", false)
       .maybeSingle();
     if (!me) throw new Error("Joueur introuvable");
+
+    const status = getEnqueteStatus(data.enquete);
+    const windows = enqueteWindowsPayload();
 
     const { data: others, error } = await supabaseAdmin
       .from("players")
@@ -137,31 +186,36 @@ export const getGameState = createServerFn({ method: "POST" })
     const { data: guesses } = await supabaseAdmin
       .from("guesses")
       .select("target_id, points")
-      .eq("guesser_id", data.playerId);
+      .eq("guesser_id", data.playerId)
+      .eq("enquete", data.enquete);
 
     const done = new Set((guesses ?? []).map((g) => g.target_id));
     const score = (guesses ?? []).reduce((sum, g) => sum + (g.points ?? 0), 0);
 
-    // Les vieilles fiches (créées avant le système à 10 indices, ou
-    // incomplètes) n'ont aucun indice exploitable : on les ignore pour ne
-    // jamais faire deviner une fiche vide.
-    const playable = (others ?? []).filter((o) => countAnswers(o.clues) > 0);
+    // Les fiches sans indices exploitables pour cette enquête (fiche vide,
+    // ou complétée uniquement pour l'autre enquête) sont ignorées.
+    const playable = (others ?? []).filter(
+      (o) => cluesForEnquete(o.clues, data.enquete).length > 0,
+    );
 
     return {
+      windows,
+      status,
       me: { id: me.id, name: me.name },
       score,
       answered: playable.filter((o) => done.has(o.id)).length,
       total: playable.length,
       cards: playable
         .filter((o) => !done.has(o.id))
-        .map((o) => ({ id: o.id, clueCount: countAnswers(o.clues) })),
+        .map((o) => ({ id: o.id, clueCount: cluesForEnquete(o.clues, data.enquete).length })),
     };
   });
 
 const clueStateSchema = z.object({
   playerId: z.string().uuid(),
   targetId: z.string().uuid(),
-  revealed: z.number().int().min(0).max(10),
+  enquete: enqueteSchema,
+  revealed: z.number().int().min(0).max(MAX_PER_ENQUETE),
 });
 
 export const getCardClues = createServerFn({ method: "POST" })
@@ -169,13 +223,18 @@ export const getCardClues = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    if (getEnqueteStatus(data.enquete) !== "open") {
+      throw new Error("Cette enquête n'est pas accessible actuellement");
+    }
+
     const { data: already } = await supabaseAdmin
       .from("guesses")
       .select("id")
       .eq("guesser_id", data.playerId)
       .eq("target_id", data.targetId)
+      .eq("enquete", data.enquete)
       .maybeSingle();
-    if (already) throw new Error("Fiche déjà jouée");
+    if (already) throw new Error("Enquête déjà jouée pour ce suspect");
 
     const { data: target } = await supabaseAdmin
       .from("players")
@@ -186,8 +245,7 @@ export const getCardClues = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!target) throw new Error("Fiche introuvable");
 
-    const clues = Array.isArray(target.clues) ? (target.clues as { q: string; a: string }[]) : [];
-    const available = clues.filter((c) => c && typeof c.a === "string" && c.a.trim().length > 0);
+    const available = cluesForEnquete(target.clues, data.enquete);
     const revealed = Math.min(data.revealed, available.length);
 
     return { clues: available.slice(0, revealed), totalClues: available.length };
@@ -196,21 +254,25 @@ export const getCardClues = createServerFn({ method: "POST" })
 const guessSchema = z.object({
   playerId: z.string().uuid(),
   targetId: z.string().uuid(),
+  enquete: enqueteSchema,
   answer: z.string().trim().min(1).max(40),
-  revealed: z.number().int().min(1).max(10),
-  attempts: z.number().int().min(1).max(20).optional(),
+  revealed: z.number().int().min(1).max(MAX_PER_ENQUETE),
 });
 
-// Une tentative sur une fiche : bonne réponse => la fiche est validée et le
-// score enregistré. Mauvaise réponse => tant qu'il reste des indices à
-// révéler, on en dévoile un de plus automatiquement (-1 pt) et on laisse
-// retenter (aucune écriture en base, la fiche n'est pas encore "jouée").
-// Une fois tous les indices épuisés sans trouver, la fiche est enregistrée
-// comme ratée (0 pt) et le vrai nom est révélé.
+// Une seule tentative par suspect et par enquête : le participant consulte
+// les indices progressivement, puis valide un nom UNE fois. Bonne réponse =>
+// fiche résolue et points enregistrés (le nombre d'indices déjà vus). Mauvaise
+// réponse => l'enquête est immédiatement perdue pour ce suspect (0 pt) et
+// l'accès aux indices suivants est coupé (la ligne "déjà jouée" bloque tout
+// nouvel appel à getCardClues comme à submitGuess).
 export const submitGuess = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => guessSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    if (getEnqueteStatus(data.enquete) !== "open") {
+      throw new Error("Cette enquête n'est pas accessible actuellement");
+    }
 
     const { data: target } = await supabaseAdmin
       .from("players")
@@ -226,54 +288,26 @@ export const submitGuess = createServerFn({ method: "POST" })
       .select("id")
       .eq("guesser_id", data.playerId)
       .eq("target_id", data.targetId)
+      .eq("enquete", data.enquete)
       .maybeSingle();
-    if (already) throw new Error("Fiche déjà jouée");
+    if (already) throw new Error("Enquête déjà jouée pour ce suspect");
 
-    const clues = Array.isArray(target.clues) ? (target.clues as { q: string; a: string }[]) : [];
-    const available = clues.filter((c) => c && typeof c.a === "string" && c.a.trim().length > 0);
+    const available = cluesForEnquete(target.clues, data.enquete);
     const totalClues = Math.max(1, available.length);
     const revealed = Math.min(data.revealed, totalClues);
     const correct = nameMatches(data.answer, target.name_key, target.name);
-    const attempts = data.attempts ?? 1;
+    const points = correct ? Math.max(0, totalClues - revealed) : 0;
 
-    if (correct) {
-      const points = Math.max(0, totalClues - revealed);
-      const { error } = await supabaseAdmin.from("guesses").insert({
-        guesser_id: data.playerId,
-        target_id: data.targetId,
-        answer: data.answer,
-        correct: true,
-        points,
-        attempts,
-      });
-      if (error) throw new Error(error.message);
-      return { done: true, correct: true, points, realName: target.name };
-    }
-
-    const nextRevealed = revealed + 1;
-    if (nextRevealed < totalClues) {
-      // Encore des indices en réserve : on en dévoile un de plus et on
-      // laisse retenter, sans enregistrer la tentative en base.
-      return {
-        done: false,
-        correct: false,
-        revealed: nextRevealed,
-        totalClues,
-        clues: available.slice(0, nextRevealed),
-      };
-    }
-
-    // Plus aucun indice à révéler : la fiche est perdue, on enregistre 0 pt.
     const { error } = await supabaseAdmin.from("guesses").insert({
       guesser_id: data.playerId,
       target_id: data.targetId,
+      enquete: data.enquete,
       answer: data.answer,
-      correct: false,
-      points: 0,
-      attempts,
+      correct,
+      points,
     });
     if (error) throw new Error(error.message);
-    return { done: true, correct: false, points: 0, realName: target.name };
+    return { correct, points, realName: target.name };
   });
 
 export const getLeaderboard = createServerFn({ method: "GET" }).handler(async () => {
@@ -298,8 +332,9 @@ export const getLeaderboard = createServerFn({ method: "GET" }).handler(async ()
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 });
 
-// Vue organisateur : contenu complet de chaque fiche (questions + réponses)
-// pour pouvoir relire et supprimer une fiche avant la soirée.
+// Vue organisateur : contenu complet de chaque fiche (questions + réponses,
+// regroupées par enquête) pour pouvoir relire et supprimer une fiche avant
+// la soirée.
 export const getAllPlayerCards = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: players, error } = await supabaseAdmin
@@ -312,9 +347,8 @@ export const getAllPlayerCards = createServerFn({ method: "GET" }).handler(async
   return (players ?? []).map((p) => ({
     id: p.id,
     name: p.name,
-    clues: (Array.isArray(p.clues) ? (p.clues as { q: string; a: string }[]) : []).filter(
-      (c) => c && typeof c.a === "string" && c.a.trim().length > 0,
-    ),
+    lycee: cluesForEnquete(p.clues, "lycee"),
+    aujourdhui: cluesForEnquete(p.clues, "aujourdhui"),
   }));
 });
 
