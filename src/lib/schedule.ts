@@ -12,9 +12,8 @@ export const ENQUETE_LABELS: Record<Enquete, string> = {
   aujourdhui: "Aujourd'hui",
 };
 
-// Dernier moment pour déposer / modifier sa fiche (mercredi, juste avant
-// l'ouverture de l'enquête Lycée le mercredi soir).
-export const SUBMISSION_DEADLINE = new Date("2026-09-23T18:00:00+02:00");
+// Dernier moment pour déposer / modifier sa fiche (mercredi 21h).
+export const SUBMISSION_DEADLINE = new Date("2026-09-23T21:00:00+02:00");
 
 // Fenêtre d'accès aux indices de chaque enquête. `end: null` = pas de fin.
 export const ENQUETE_WINDOWS: Record<Enquete, { start: Date; end: Date | null }> = {
