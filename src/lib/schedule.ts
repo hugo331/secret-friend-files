@@ -12,13 +12,13 @@ export const ENQUETE_LABELS: Record<Enquete, string> = {
   aujourdhui: "Aujourd'hui",
 };
 
-// Dernier moment pour déposer / modifier sa fiche (mercredi 21h).
-export const SUBMISSION_DEADLINE = new Date("2026-09-23T21:00:00+02:00");
+// Dernier moment pour déposer / modifier sa fiche (ce soir minuit).
+export const SUBMISSION_DEADLINE = new Date("2026-09-24T00:00:00+02:00");
 
 // Fenêtre d'accès aux indices de chaque enquête. `end: null` = pas de fin.
 export const ENQUETE_WINDOWS: Record<Enquete, { start: Date; end: Date | null }> = {
   lycee: {
-    start: new Date("2026-09-23T18:00:00+02:00"), // mercredi soir
+    start: new Date("2026-09-24T09:00:00+02:00"), // jeudi matin
     end: new Date("2026-09-26T12:00:00+02:00"), // samedi 12h00
   },
   aujourdhui: {
@@ -40,12 +40,16 @@ export function getEnqueteStatus(enquete: Enquete, now: Date = new Date()): Enqu
   return "open";
 }
 
+// Fuseau explicite : sans ça, l'heure affichée dépend du fuseau du serveur
+// ou du navigateur de la personne qui regarde (souvent UTC), ce qui peut
+// afficher une heure fausse même si la date stockée est correcte.
 const DATE_FORMAT = new Intl.DateTimeFormat("fr-FR", {
   weekday: "long",
   day: "numeric",
   month: "long",
   hour: "2-digit",
   minute: "2-digit",
+  timeZone: "Europe/Paris",
 });
 
 export function formatSchedule(date: Date): string {

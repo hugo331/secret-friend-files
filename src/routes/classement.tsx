@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RotateCcw, Trash2, Trophy } from "lucide-react";
+import { Pencil, RotateCcw, Trash2, Trophy } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -17,6 +17,7 @@ import {
   getAllPlayerCards,
   getLeaderboard,
   removePlayerCard,
+  renamePlayerCard,
   resetAllGameData,
 } from "@/lib/game.functions";
 
@@ -38,6 +39,7 @@ function LeaderboardPage() {
   const fetchBoard = useServerFn(getLeaderboard);
   const fetchCards = useServerFn(getAllPlayerCards);
   const remove = useServerFn(removePlayerCard);
+  const rename = useServerFn(renamePlayerCard);
   const resetAll = useServerFn(resetAllGameData);
   const queryClient = useQueryClient();
   const { data } = useQuery({
@@ -76,6 +78,19 @@ function LeaderboardPage() {
       await queryClient.invalidateQueries({ queryKey: ["all-cards"] });
     } catch {
       toast.error("Suppression impossible, réessaie.");
+    }
+  };
+
+  const onRename = async (id: string, currentName: string) => {
+    const next = window.prompt(`Nouveau prénom pour "${currentName}" :`, currentName);
+    if (!next || !next.trim() || next.trim() === currentName) return;
+    try {
+      await rename({ data: { playerId: id, newName: next.trim() } });
+      toast.success(`Fiche renommée en ${next.trim()}.`);
+      await queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["all-cards"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Renommage impossible, réessaie.");
     }
   };
 
@@ -160,15 +175,25 @@ function LeaderboardPage() {
                                 </p>
                               ))}
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void onRemove(p.id, p.name)}
-                              className="mt-2 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer cette fiche
-                            </Button>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void onRename(p.id, p.name)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Renommer
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void onRemove(p.id, p.name)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer cette fiche
+                              </Button>
+                            </div>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
