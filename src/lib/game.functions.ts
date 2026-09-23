@@ -356,6 +356,37 @@ export const getAllPlayerCards = createServerFn({ method: "GET" }).handler(async
   }));
 });
 
+const renameSchema = z.object({
+  playerId: z.string().uuid(),
+  newName: z.string().trim().min(1).max(40),
+});
+
+// Correction organisateur : renommer une fiche (faute de frappe, prénom mal
+// écrit...) sans perdre ses réponses ni son historique de points.
+export const renamePlayerCard = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => renameSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const newKey = normalizeName(data.newName);
+    if (!newKey) throw new Error("Prénom invalide");
+
+    const { data: conflict } = await supabaseAdmin
+      .from("players")
+      .select("id")
+      .eq("name_key", newKey)
+      .neq("id", data.playerId)
+      .eq("removed", false)
+      .maybeSingle();
+    if (conflict) throw new Error("Ce prénom est déjà utilisé par une autre fiche");
+
+    const { error } = await supabaseAdmin
+      .from("players")
+      .update({ name: data.newName, name_key: newKey, updated_at: new Date().toISOString() })
+      .eq("id", data.playerId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const removePlayerCard = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => idSchema.parse(input))
   .handler(async ({ data }) => {
