@@ -5,6 +5,16 @@ import { ArrowRight, Eye, FlaskConical, Fingerprint, Lock, Trophy } from "lucide
 import { toast } from "sonner";
 
 import { Leaderboard } from "@/components/Leaderboard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,6 +78,7 @@ function GamePage() {
     realName: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const previewTaps = useRef(0);
 
@@ -197,16 +208,19 @@ function GamePage() {
 
   // Une seule tentative par suspect : on prévient avant d'envoyer, puisqu'une
   // mauvaise réponse coupe immédiatement l'accès aux indices suivants et
-  // vaut 0 point (plus aucune retentative possible).
+  // vaut 0 point (plus aucune retentative possible). On utilise une boîte de
+  // dialogue de l'app plutôt que window.confirm() : ce dernier est bloqué
+  // silencieusement par de nombreux navigateurs intégrés (WhatsApp,
+  // Messenger, Instagram...), ce qui rendait le bouton "Accuser" inopérant
+  // sans aucun message d'erreur pour la personne qui teste depuis ces liens.
+  const openConfirm = () => {
+    if (!state || !current || !answer.trim()) return;
+    setConfirmOpen(true);
+  };
+
   const send = async () => {
     if (!state || !current || !answer.trim()) return;
-    if (
-      !window.confirm(
-        `Valider "${answer.trim()}" ? Si c'est faux, cette enquête est perdue pour ce suspect (0 pt) et tu ne pourras plus voir d'autres indices.`,
-      )
-    ) {
-      return;
-    }
+    setConfirmOpen(false);
     setBusy(true);
     try {
       const res = await guess({
@@ -412,7 +426,7 @@ function GamePage() {
                   value={answer}
                   maxLength={40}
                   onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && void send()}
+                  onKeyDown={(e) => e.key === "Enter" && openConfirm()}
                   placeholder="Qui se cache derrière ?"
                   className="text-center"
                 />
@@ -427,7 +441,7 @@ function GamePage() {
                     Indice ({revealed}/{totalClues})
                   </Button>
                   <Button
-                    onClick={() => void send()}
+                    onClick={openConfirm}
                     disabled={busy || !answer.trim()}
                     className="flex-1"
                   >
@@ -442,6 +456,22 @@ function GamePage() {
       </div>
 
       <Leaderboard compact />
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Valider "{answer.trim()}" ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Si c'est faux, cette enquête est perdue pour ce suspect (0 pt) et tu ne pourras plus
+              voir d'autres indices.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void send()}>Valider</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Shell>
   );
 }
