@@ -14,6 +14,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,6 +71,7 @@ function Index() {
   const [extras, setExtras] = useState<Record<Enquete, ExtraClue[]>>({ lycee: [], aujourdhui: [] });
   const [saving, setSaving] = useState(false);
   const [stored, setStored] = useState<StoredPlayer | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [adminOverride, setAdminOverride] = useState(false);
   const save = useServerFn(savePlayer);
   const remove = useServerFn(deleteMyPlayer);
@@ -156,7 +167,7 @@ function Index() {
 
   const onDelete = async () => {
     if (!stored) return;
-    if (!window.confirm("Supprimer définitivement ta fiche ?")) return;
+    setConfirmDeleteOpen(false);
     setSaving(true);
     try {
       await remove({ data: { deleteToken: stored.deleteToken } });
@@ -365,7 +376,11 @@ function Index() {
               </Link>
             </Button>
             {stored && (
-              <Button variant="destructive" onClick={() => void onDelete()} disabled={saving}>
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmDeleteOpen(true)}
+                disabled={saving}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Supprimer ma fiche
               </Button>
@@ -377,6 +392,21 @@ function Index() {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer définitivement ta fiche ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible : ta fiche et tes réponses seront effacées.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void onDelete()}>Supprimer</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
