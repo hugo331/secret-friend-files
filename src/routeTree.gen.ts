@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClassementRouteImport } from './routes/classement'
+import { Route as ExportRouteImport } from './routes/export'
 import { Route as JeuRouteImport } from './routes/jeu'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ClassementRoute = ClassementRouteImport.update({
   path: '/classement',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JeuRoute = JeuRouteImport.update({
   id: '/jeu',
   path: '/jeu',
@@ -32,30 +38,34 @@ const JeuRoute = JeuRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/classement': typeof ClassementRoute
+  '/export': typeof ExportRoute
   '/jeu': typeof JeuRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/classement': typeof ClassementRoute
+  '/export': typeof ExportRoute
   '/jeu': typeof JeuRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/classement': typeof ClassementRoute
+  '/export': typeof ExportRoute
   '/jeu': typeof JeuRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/classement' | '/jeu'
+  fullPaths: '/' | '/classement' | '/export' | '/jeu'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/classement' | '/jeu'
-  id: '__root__' | '/' | '/classement' | '/jeu'
+  to: '/' | '/classement' | '/export' | '/jeu'
+  id: '__root__' | '/' | '/classement' | '/export' | '/jeu'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ClassementRoute: typeof ClassementRoute
+  ExportRoute: typeof ExportRoute
   JeuRoute: typeof JeuRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClassementRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jeu': {
       id: '/jeu'
       path: '/jeu'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ClassementRoute: ClassementRoute,
+  ExportRoute: ExportRoute,
   JeuRoute: JeuRoute,
 }
 export const routeTree = rootRouteImport
