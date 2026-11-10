@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RotateCcw, Trash2, Trophy } from "lucide-react";
+import { Pencil, Printer, RotateCcw, Trash2, Trophy } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -224,6 +224,12 @@ function LeaderboardPage() {
             <p className="text-xs text-muted-foreground">
               Mode organisateur — avant la vraie soirée, efface les fiches de test.
             </p>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/export">
+                <Printer className="mr-2 h-4 w-4" />
+                Exporter les fiches (PDF)
+              </Link>
+            </Button>
             <Button
               variant="outline"
               size="sm"
